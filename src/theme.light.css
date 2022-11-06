@@ -1,5 +1,6 @@
 :root {
  --md-sys-color-primary: var(--md-sys-color-primary-light);
+ --md-sys-color-primary-rgb: var(--md-sys-color-primary-light-rgb);
  --md-sys-color-on-primary: var(--md-sys-color-on-primary-light);
  --md-sys-color-primary-container: var(--md-sys-color-primary-container-light);
  --md-sys-color-on-primary-container: var(--md-sys-color-on-primary-container-light);
@@ -18,6 +19,7 @@
  --md-sys-color-background: var(--md-sys-color-background-light);
  --md-sys-color-on-background: var(--md-sys-color-on-background-light);
  --md-sys-color-surface: var(--md-sys-color-surface-light);
+ --md-sys-color-surface-1: rgb(var(--md-sys-color-primary-rgb) / 0.05);
  --md-sys-color-on-surface: var(--md-sys-color-on-surface-light);
  --md-sys-color-surface-variant: var(--md-sys-color-surface-variant-light);
  --md-sys-color-on-surface-variant: var(--md-sys-color-on-surface-variant-light);

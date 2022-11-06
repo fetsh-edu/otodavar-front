@@ -109,6 +109,9 @@
 .surface {
   background-color: var(--md-sys-color-surface);
 }
+.surface-1 {
+    background-color: var(--md-sys-color-surface-1);
+}
 .surface-text {
   color: var(--md-sys-color-surface);
 }
