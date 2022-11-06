@@ -14,7 +14,6 @@ import Http exposing (Error(..), Expect, expectStringResponse)
 import Json.Decode as Decode exposing (at, decodeString, field)
 import Json.Encode as Encode
 import Http
-import Json.Decode as Json
 import Jwt exposing (decodeToken, tokenDecoder, errorToString)
 import Maybe exposing (withDefault)
 import OAuth exposing (ErrorCode(..), ResponseType(..), Token, errorCodeFromString, makeToken, tokenToString)
@@ -91,15 +90,6 @@ type alias Configuration =
     , responseType : ResponseType
     }
 
-{-| During the authentication flow, we'll run twice into the `init` function:
-  - The first time, for the application very first run. And we proceed with the `Idle` state,
-    waiting for the user (a.k.a you) to request a sign in.
-  - The second time, after a sign in has been requested, the user is redirected to the
-    authorization server and redirects the user back to our application, with an access
-    token and other fields as query parameters.
-When query params are present (and valid), we consider the user `Authorized`.
--}
-
 type alias Flags =
   { bytes : Maybe (List Int)
   , bearer : Encode.Value
@@ -109,32 +99,31 @@ type alias Flags =
 init : Flags -> Url -> Key -> ( Model, Cmd Msg )
 init flags origin navigationKey =
     let
-        maybeBytes = flags.bytes |> Maybe.map convertBytes
-        maybeBearer = Debug.log "Initial Bearer" flags.bearer
-        redirectUri = { origin | query = Nothing, fragment = Nothing }
-        clearUrl = Navigation.replaceUrl navigationKey (Url.toString redirectUri)
+        rootUrl = { origin | query = Nothing, fragment = Nothing }
+        initialModel = { flow = Idle, rootUrl = rootUrl }
+        clearUrl = Navigation.replaceUrl navigationKey (Url.toString rootUrl)
     in
     case parseToken origin of
         OAuth.Empty ->
             withStorageToken
-                { flow = Idle, rootUrl = redirectUri }
-                ((Decode.decodeValue userFromStorageDecoder maybeBearer))
+                initialModel
+                ((Decode.decodeValue userFromStorageDecoder flags.bearer))
 
         OAuth.Success { accessToken, state, idToken } ->
-            case maybeBytes of
+            case Maybe.map convertBytes flags.bytes of
                 Nothing ->
-                    ( { flow = Erred ErrStateMismatch, rootUrl = redirectUri }
+                    ( { initialModel | flow = Erred ErrStateMismatch }
                     , clearUrl
                     )
 
                 Just bytes ->
                     if state /= Just bytes.state || idToken.parsed.nonce /= bytes.state then
-                        ( { flow = Erred ErrStateMismatch, rootUrl = redirectUri }
+                        ( { initialModel | flow = Erred ErrStateMismatch }
                         , clearUrl
                         )
 
                     else
-                        ( { flow = GoogleAuthed accessToken idToken, rootUrl = redirectUri }
+                        ( { initialModel | flow = GoogleAuthed accessToken idToken }
                         , Cmd.batch
                             [ after 500 RequestOtoBearer
                             , clearUrl
@@ -142,7 +131,7 @@ init flags origin navigationKey =
                         )
 
         OAuth.Error error ->
-            ( { flow = Erred <| ErrAuthorization error, rootUrl = redirectUri }
+            ( { initialModel | flow = Erred <| ErrAuthorization error }
             , clearUrl
             )
 
@@ -192,12 +181,12 @@ type alias JwtToken =
 
 googleJWT : Decode.Decoder JwtToken
 googleJWT =
-    Decode.succeed JwtToken
-        |> Decode.map2 (|>) (field "nonce" Decode.string)
-        |> Decode.map2 (|>) (field "name" Decode.string)
-        |> Decode.map2 (|>) (field "picture" Decode.string)
-        |> Decode.map2 (|>) (field "sub" Decode.string)
-        |> Decode.map2 (|>) (field "email" Decode.string)
+    Decode.map5 JwtToken
+        (field "nonce" Decode.string)
+        (field "name" Decode.string)
+        (field "picture" Decode.string)
+        (field "sub" Decode.string)
+        (field "email" Decode.string)
 
 type alias IdToken =
     { raw : String
@@ -597,16 +586,6 @@ oauthErrorToString { error, errorDescription } =
 defaultHttpsUrl : Url
 defaultHttpsUrl =
     { protocol = Https
-    , host = ""
-    , path = ""
-    , port_ = Nothing
-    , query = Nothing
-    , fragment = Nothing
-    }
-
-defaultHttpUrl : Url
-defaultHttpUrl =
-    { protocol = Http
     , host = ""
     , path = ""
     , port_ = Nothing
