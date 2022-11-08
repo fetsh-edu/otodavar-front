@@ -10,7 +10,7 @@ import Login exposing (convertBytes)
 import Maybe
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import Route exposing (Route)
-import Session exposing (IdToken, Session, logout)
+import Session exposing (Session, logout)
 import Url exposing (Protocol(..), Url)
 import User.User exposing (User(..))
 
@@ -55,7 +55,7 @@ type alias Flags =
 init : Flags -> Url -> Key -> ( Model, Cmd Msg )
 init flags url navKey =
     let
-        tokenResult = Session.parseToken url
+        tokenResult = Login.parseToken url
         maybeBytes = Maybe.map convertBytes flags.bytes
         session = Session.decode navKey url flags.bearer
     in

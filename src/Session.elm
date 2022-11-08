@@ -2,14 +2,10 @@ port module Session exposing (..)
 
 import Browser.Navigation as Nav
 import Http
-import Json.Decode as Decode exposing (field)
+import Json.Decode as Decode
 import Json.Encode as Encode
-import Jwt exposing (decodeToken, tokenDecoder, errorToString)
-import OAuth exposing (ErrorCode(..), Token)
-import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..), defaultAuthorizationErrorParser, defaultErrorParser, defaultTokenParser)
+import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import Url exposing (Url)
-import Url.Parser as Url exposing ((<?>))
-import Url.Parser.Query as Query
 import User.User as User exposing (User)
 
 type Session
@@ -81,85 +77,3 @@ decode key url_ value =
 
 port storeSession : Maybe Decode.Value -> Cmd msg
 port onSessionChange : (Encode.Value -> msg) -> Sub msg
-
-
-parseToken : Url -> AuthorizationResultWith OAuth.AuthorizationError AuthorizationSuccess
-parseToken url_ =
-    let
-        urlPre =
-            { url_ | path = "/", query = url_.fragment, fragment = Nothing }
-        parseUrlQuery : a -> Query.Parser a -> a
-        parseUrlQuery def parser =
-            Maybe.withDefault def <| Url.parse (Url.query parser) urlPre
-
-        googleToken : String -> Result Jwt.JwtError JwtToken
-        googleToken = decodeToken googleJWT
-        authorizationSuccessParser : Token -> IdToken -> Query.Parser AuthorizationSuccess
-        authorizationSuccessParser accessToken idToken =
-            Query.map3 (AuthorizationSuccess accessToken idToken Nothing)
-                (Query.int "expires_in")
-                (spaceSeparatedListParser "scope")
-                (Query.string "state")
-    in
-    case Url.parse (Url.top <?> Query.map2 Tuple.pair defaultTokenParser defaultErrorParser) urlPre of
-        Just ( Just accessToken, _ ) ->
-            case Url.parse (Url.query (Query.string "id_token")) urlPre of
-                Just (Just some) ->
-                    case googleToken some of
-                        Ok value ->
-                            parseUrlQuery Empty (Query.map Success <| authorizationSuccessParser accessToken (IdToken some value))
-                        Err error ->
-                            Error (OAuth.AuthorizationError (Custom (errorToString error)) Nothing Nothing Nothing)
-                _ -> Empty
-
-        Just ( _, Just error ) ->
-            parseUrlQuery Empty (Query.map Error <| defaultAuthorizationErrorParser error)
-
-        _ ->
-            Empty
-
-type alias JwtToken =
-        { nonce : String
-        , name : String
-        , picture : String
-        , sub : String
-        , email : String
-        }
-
-
-googleJWT : Decode.Decoder JwtToken
-googleJWT =
-    Decode.map5 JwtToken
-        (field "nonce" Decode.string)
-        (field "name" Decode.string)
-        (field "picture" Decode.string)
-        (field "sub" Decode.string)
-        (field "email" Decode.string)
-
-type alias IdToken =
-    { raw : String
-    , parsed : JwtToken
-    }
-
-type alias AuthorizationSuccess =
-    { accessToken : Token
-    , idToken : IdToken
-    , refreshToken : Maybe Token
-    , expiresIn : Maybe Int
-    , scope : List String
-    , state : Maybe String
-    }
-
-
-spaceSeparatedListParser : String -> Query.Parser (List String)
-spaceSeparatedListParser param =
-    Query.map
-        (\s ->
-            case s of
-                Nothing ->
-                    []
-
-                Just str ->
-                    String.split " " str
-        )
-        (Query.string param)

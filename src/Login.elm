@@ -10,12 +10,15 @@ import Html exposing (Html, div, img, span, text)
 import Html.Attributes exposing (class, src, style)
 import Html.Events exposing (onClick)
 import Http exposing (Error(..), Expect, expectStringResponse)
-import Json.Decode as Decode
+import Json.Decode as Decode exposing (field)
 import Json.Encode as Encode
-import OAuth exposing (ResponseType(..))
-import OAuth.Implicit as OAuth
-import Session exposing (IdToken, Session, navKey)
+import Jwt exposing (decodeToken, errorToString)
+import OAuth exposing (ErrorCode(..), ResponseType(..), Token)
+import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..), defaultAuthorizationErrorParser, defaultErrorParser, defaultTokenParser)
+import Session exposing (Session, navKey)
 import Url exposing (Protocol(..), Url)
+import Url.Parser as Url exposing ((<?>))
+import Url.Parser.Query as Query
 import User.Bearer exposing (Bearer(..))
 import User.User as User exposing (User, decoderInfo2)
 
@@ -139,9 +142,91 @@ update msg model =
             ( { model | flow = Processing, session = session }, Navigation.replaceUrl (navKey session) (Url.toString (rootUrl session)) )
 
 
+parseToken : Url -> AuthorizationResultWith OAuth.AuthorizationError AuthorizationSuccess
+parseToken url_ =
+    let
+        urlPre =
+            { url_ | path = "/", query = url_.fragment, fragment = Nothing }
+        parseUrlQuery : a -> Query.Parser a -> a
+        parseUrlQuery def parser =
+            Maybe.withDefault def <| Url.parse (Url.query parser) urlPre
+
+        googleToken : String -> Result Jwt.JwtError JwtToken
+        googleToken = decodeToken googleJWT
+        authorizationSuccessParser : Token -> IdToken -> Query.Parser AuthorizationSuccess
+        authorizationSuccessParser accessToken idToken =
+            Query.map3 (AuthorizationSuccess accessToken idToken Nothing)
+                (Query.int "expires_in")
+                (spaceSeparatedListParser "scope")
+                (Query.string "state")
+    in
+    case Url.parse (Url.top <?> Query.map2 Tuple.pair defaultTokenParser defaultErrorParser) urlPre of
+        Just ( Just accessToken, _ ) ->
+            case Url.parse (Url.query (Query.string "id_token")) urlPre of
+                Just (Just some) ->
+                    case googleToken some of
+                        Ok value ->
+                            parseUrlQuery Empty (Query.map Success <| authorizationSuccessParser accessToken (IdToken some value))
+                        Err error ->
+                            Error (OAuth.AuthorizationError (Custom (errorToString error)) Nothing Nothing Nothing)
+                _ -> Empty
+
+        Just ( _, Just error ) ->
+            parseUrlQuery Empty (Query.map Error <| defaultAuthorizationErrorParser error)
+
+        _ ->
+            Empty
+
 ----------------------------------------
 --             INTERNAL               --
 ----------------------------------------
+
+
+type alias JwtToken =
+        { nonce : String
+        , name : String
+        , picture : String
+        , sub : String
+        , email : String
+        }
+
+
+googleJWT : Decode.Decoder JwtToken
+googleJWT =
+    Decode.map5 JwtToken
+        (field "nonce" Decode.string)
+        (field "name" Decode.string)
+        (field "picture" Decode.string)
+        (field "sub" Decode.string)
+        (field "email" Decode.string)
+
+type alias IdToken =
+    { raw : String
+    , parsed : JwtToken
+    }
+
+type alias AuthorizationSuccess =
+    { accessToken : Token
+    , idToken : IdToken
+    , refreshToken : Maybe Token
+    , expiresIn : Maybe Int
+    , scope : List String
+    , state : Maybe String
+    }
+
+
+spaceSeparatedListParser : String -> Query.Parser (List String)
+spaceSeparatedListParser param =
+    Query.map
+        (\s ->
+            case s of
+                Nothing ->
+                    []
+
+                Just str ->
+                    String.split " " str
+        )
+        (Query.string param)
 
 configuration : { authorizationEndpoint : Url, userInfoEndpoint : Url, clientId : String, scope : List String, responseType : ResponseType }
 configuration =
