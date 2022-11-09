@@ -102,12 +102,17 @@ changeRouteTo maybeRoute model =
         case (Debug.log "maybeRoute" maybeRoute) of
             Nothing ->
                 ( model, Route.replaceUrl (Session.navKey session) Route.Home )
-            Just Route.Home ->
-                updateWith Home GotHomeMsg model (Home.init session)
             Just Route.Logout ->
                 (Login (Login.Model session Login.Idle), logout)
             Just Route.Login ->
                 updateWith Login GotLoginMsg model (Login.init session)
+            Just Route.Home ->
+                updateWith Home GotHomeMsg model (Home.init session)
+            Just (Route.Profile uid) ->
+                let
+                    a = Debug.log "We are" "lavale"
+                in
+                noOp model
 
 
 -- ---------------------------

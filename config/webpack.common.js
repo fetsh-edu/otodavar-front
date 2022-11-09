@@ -3,13 +3,13 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const {CleanWebpackPlugin} = require('clean-webpack-plugin');
 
-
 module.exports = (withDebug) => {
     return {
         entry: './src/index.js',
         output: {
             path: path.resolve(__dirname, '../dist'),
-            filename: 'bundle.js'
+            publicPath: '/',
+            filename: '[name].js'
         },
         resolve: {
             modules: [path.join(__dirname, "../src"), 'node_modules'],

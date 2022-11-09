@@ -4,10 +4,12 @@ import Browser.Navigation as Nav
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Url exposing (Url)
-import Url.Parser as Parser exposing ((<?>), Parser, oneOf, s)
+import Url.Parser as Parser exposing ((</>), (<?>), Parser, oneOf, s)
+import User.Uid as Uid exposing (Uid(..))
 
 type Route
     = Home
+    | Profile Uid
     | Logout
     | Login
 
@@ -16,14 +18,17 @@ parser : Parser (Route -> a) a
 parser =
     oneOf
         [ Parser.map Home Parser.top
+        , Parser.map Profile (s "u" </> Parser.map Uid Parser.string)
         , Parser.map Logout (s "logout")
         , Parser.map Login (s "login")
         ]
+
 
 isProtected : Route -> Bool
 isProtected route =
     case route of
         Home -> True
+        Profile _ -> True
         Logout -> False
         Login -> False
 
@@ -46,6 +51,7 @@ routeToString page =
         pieces =
             case page of
                 Home    -> []
+                Profile uid -> ["u", Uid.toString uid]
                 Logout  -> ["logout"]
                 Login   -> ["login"]
 
