@@ -50,6 +50,7 @@ type Msg
     | GotOtoUser (Result Http.Error User)
     | GotSession Session
 
+
 view : Model -> { title : String, content : Html Msg }
 view model =
     let
@@ -69,7 +70,6 @@ view model =
     }
 
 
-
 errorView : Error -> Html Msg
 errorView error =
     div [ class "flex m-10 justify-center items-center"]
@@ -78,6 +78,7 @@ errorView error =
             , span [ class "ml-3 w-full overflow-ellipsis overflow-hidden" ] [ viewError error ]
             ]
         ]
+
 
 viewError : Error -> Html Msg
 viewError e =
@@ -139,7 +140,11 @@ update msg model =
         GotOtoUser (Err error) ->
             ({ model | flow = Erred (ErrHTTPGetUserInfo error)}, Cmd.none)
         GotSession session ->
-            ( { model | flow = Processing, session = session }, Navigation.replaceUrl (navKey session) (Url.toString (rootUrl session)) )
+            ( { model | flow = Processing, session = session }
+            , Navigation.replaceUrl
+                (navKey session)
+                (model |> toSession |> Session.url |> cleanUrl |> Url.toString)
+            )
 
 
 parseToken : Url -> AuthorizationResultWith OAuth.AuthorizationError AuthorizationSuccess
@@ -253,23 +258,24 @@ encodeToken : IdToken -> Encode.Value
 encodeToken { raw } =
     Encode.object [("jwt", Encode.string raw)]
 
-rootUrl : Session -> Url
-rootUrl session =
-    let
-        initUrl = Session.url session
-    in
-        { initUrl | query = Nothing, fragment = Nothing, path = "/" }
+cleanUrl : Url -> Url
+cleanUrl initUrl =
+    { initUrl | query = Nothing, fragment = Nothing }
+
+rootUrl : Url -> Url
+rootUrl = cleanUrl >> (\x -> {x | path = "/"})
 
 gotRandomBytes : Model -> List Int -> ( Model, Cmd Msg )
 gotRandomBytes model bytes =
     let
         { state } = convertBytes bytes
-
+        stateUrl = model |> toSession |> Session.url |> cleanUrl |> Url.toString
+        redirectUrl = model |> toSession |> Session.url |> rootUrl
         authorization =
             { clientId = configuration.clientId
-            , redirectUri = rootUrl model.session
+            , redirectUri = redirectUrl
             , scope = configuration.scope
-            , state = Just state
+            , state = Just <| String.join ";" [state, stateUrl]
             , url = configuration.authorizationEndpoint
             }
     in

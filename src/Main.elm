@@ -57,21 +57,28 @@ init flags url navKey =
     let
         tokenResult = Login.parseToken url
         maybeBytes = Maybe.map convertBytes flags.bytes
-        session = Session.decode navKey url flags.bearer
+        session url_ = Session.decode navKey url_ flags.bearer
     in
     case (tokenResult, maybeBytes) of
         (OAuth.Empty, _) ->
             changeRouteTo (Route.fromUrl url)
-                (Home (Home.initModel session))
+                (Home (Home.initModel (session url)))
         (OAuth.Error error, _) ->
-            ( Login (Login.Model session (Login.Erred (Login.ErrAuthorization error))), Cmd.none )
+            ( Login (Login.Model (session url) (Login.Erred (Login.ErrAuthorization error))), Cmd.none )
         (OAuth.Success _, Nothing) ->
-            ( Login (Login.Model session (Login.Erred Login.ErrStateMismatch)), Cmd.none )
+            ( Login (Login.Model (session url) (Login.Erred Login.ErrStateMismatch)), Cmd.none )
         (OAuth.Success { accessToken, state, idToken } , Just bytes) ->
-            if state /= Just bytes.state || idToken.parsed.nonce /= bytes.state then
-                ( Login (Login.Model session (Login.Erred Login.ErrStateMismatch)), Cmd.none )
+            let
+                (state_, redirectUrl) =
+                    case Maybe.map (String.split ";") state of
+                        Just [a_, b_] -> (Just a_, b_ |> String.trim |> Url.fromString |> Maybe.withDefault url)
+                        Just [a_] -> (Just a_, url)
+                        _ -> (Nothing, url)
+            in
+            if state_ /= Just bytes.state || idToken.parsed.nonce /= bytes.state then
+                ( Login (Login.Model (session url) (Login.Erred Login.ErrStateMismatch)), Cmd.none )
             else
-                ( Login (Login.Model session Login.Processing), Cmd.map GotLoginMsg (Login.getOtoBearer idToken))
+                ( Login (Login.Model (session redirectUrl) Login.Processing), Cmd.map GotLoginMsg (Login.getOtoBearer idToken))
 
 
 toSession : Model -> Session
@@ -140,7 +147,7 @@ update msg model =
                     , Navigation.load href
                     )
         ( ChangedUrl url, _ ) ->
-            changeRouteTo (Route.fromUrl (Debug.log "changedUrl: " url)) model
+            changeRouteTo (Route.fromUrl url) model
 
         ( GotLoginMsg subMsg, Login login_  ) ->
             updateWith Login GotLoginMsg model (Login.update subMsg login_)
