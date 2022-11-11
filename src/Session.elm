@@ -6,6 +6,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import Url exposing (Url)
+import User.Bearer exposing (Bearer)
 import User.User as User exposing (User)
 
 type Session
@@ -18,6 +19,9 @@ type Error
     | ErrHTTPGetUserInfo Http.Error
     | ErrCacheParse Decode.Error
 
+
+bearer : Session -> Maybe Bearer
+bearer = Maybe.map User.bearer << user
 
 navKey : Session -> Nav.Key
 navKey session =

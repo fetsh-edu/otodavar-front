@@ -20,6 +20,7 @@ import Url exposing (Protocol(..), Url)
 import Url.Parser as Url exposing ((<?>))
 import Url.Parser.Query as Query
 import User.Bearer exposing (Bearer(..))
+import User.Config exposing (configuration)
 import User.User as User exposing (User, decoderInfo2)
 
 type alias Model =
@@ -233,14 +234,7 @@ spaceSeparatedListParser param =
         )
         (Query.string param)
 
-configuration : { authorizationEndpoint : Url, userInfoEndpoint : Url, clientId : String, scope : List String, responseType : ResponseType }
-configuration =
-    { authorizationEndpoint = { defaultHttpsUrl | host = "accounts.google.com", path = "/o/oauth2/v2/auth" }
-    , userInfoEndpoint = { defaultHttpsUrl | host = "localhost", path = "/jwt", port_ = Just 3001 }
-    , clientId = "744236351761-3enuq53j5e76109de883r0uhb7cb9tc1.apps.googleusercontent.com"
-    , scope = [ "profile email" ]
-    , responseType = CustomResponse "id_token token"
-    }
+
 
 getOtoBearer : IdToken -> Cmd Msg
 getOtoBearer token =
@@ -326,13 +320,3 @@ expectJsonWithHeader toMsg decoder combiner =
                     Nothing -> Err (BadBody "No Authorization token")
             Err err ->
               Err (BadBody (Decode.errorToString err))
-
-defaultHttpsUrl : Url
-defaultHttpsUrl =
-    { protocol = Https
-    , host = ""
-    , path = ""
-    , port_ = Nothing
-    , query = Nothing
-    , fragment = Nothing
-    }

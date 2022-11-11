@@ -25,6 +25,21 @@ type alias Info =
     , name : Name
     }
 
+type Player
+    = Acquaintance Info
+    | Friend FullInfo
+
+type alias FullInfo =
+    { email : Email
+    , uid : Uid
+    , avatar : Avatar
+    , name : Name
+    , isFriend : Bool
+    , gamesCount : Int
+    , friendsCount : Int
+    , friends : Maybe (List Info)
+    }
+
 build : Bearer -> Info -> User
 build a b = User (Internals a b)
 
@@ -39,7 +54,7 @@ info (User intern) =
 view : User -> Html msg
 view user =
         div [ class "transition-transform transform  w-full md:w-1/2 surface-1 on-surface-text rounded-lg flex flex-row p-4 mb-8 text-lg shadow-md justify-left items-center" ]
-            [ img [ attribute "referrerpolicy" "no-referrer", class "w-14 h-14 rounded-full", src (info user |> .avatar |> Avatar.toString)] []
+            [ img [ attribute "referrerpolicy" "no-referrer", class "w-14 h-14 rounded-lg", src (info user |> .avatar |> Avatar.toString)] []
             , span [ class "pl-4 overflow-ellipsis overflow-hidden"] [text (info user |> .name |> Name.toString)]
             ]
 
@@ -90,8 +105,14 @@ decoderInfo2 =
         (at ["data", "avatar"] Avatar.decoder)
         (at ["data", "name"] Name.decoder)
 
-
-
-
-
-
+decoderFullInfo : Decoder FullInfo
+decoderFullInfo =
+    Decode.map8 FullInfo
+         (Decode.field "email" Email.decoder)
+         (Decode.field "uid" Uid.decoder)
+         (Decode.field "avatar" Avatar.decoder)
+         (Decode.field "name" Name.decoder)
+         (Decode.field "is_friend" Decode.bool)
+         (Decode.field "games_count" Decode.int)
+         (Decode.field "friends_count" Decode.int)
+         (Decode.field "friends" (Decode.maybe (Decode.list decoderInfo)))

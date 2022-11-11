@@ -9,6 +9,7 @@ import Json.Encode as Encode
 import Login exposing (convertBytes)
 import Maybe
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
+import Profile
 import Route exposing (Route)
 import Session exposing (Session, logout)
 import Url exposing (Protocol(..), Url)
@@ -34,9 +35,11 @@ subscriptions model =
                 , Session.changes (GotLoginMsg << Login.GotSession) (Session.navKey (toSession model)) (Session.url (toSession model))
                 ]
     in
-    case model of
-        Home _ -> defSub
-        Login _ -> defSub
+    defSub
+    --case model of
+    --    Home _ -> defSub
+    --    Login _ -> defSub
+    --    Profile _ -> defSub
 
 -- ---------------------------
 -- MODEL
@@ -45,6 +48,7 @@ subscriptions model =
 type Model
     = Home Home.Model
     | Login Login.Model
+    | Profile Profile.Model
 
 
 type alias Flags =
@@ -86,6 +90,7 @@ toSession page =
     case page of
         Home session -> Home.toSession session
         Login model -> Login.toSession model
+        Profile profile -> Profile.toSession profile
 
 
 changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
@@ -109,10 +114,7 @@ changeRouteTo maybeRoute model =
             Just Route.Home ->
                 updateWith Home GotHomeMsg model (Home.init session)
             Just (Route.Profile uid) ->
-                let
-                    a = Debug.log "We are" "lavale"
-                in
-                noOp model
+                updateWith Profile GotProfileMsg model (Profile.init session uid)
 
 
 -- ---------------------------
@@ -126,6 +128,7 @@ type Msg
     | ClickedLink Browser.UrlRequest
     | GotHomeMsg Home.Msg
     | GotLoginMsg Login.Msg
+    | GotProfileMsg Profile.Msg
 
 
 
@@ -157,10 +160,12 @@ update msg model =
         ( GotLoginMsg subMsg, Login login_  ) ->
             updateWith Login GotLoginMsg model (Login.update subMsg login_)
 
-        ( GotLoginMsg _, _  ) ->
-            noOp model
-
-        ( GotHomeMsg _, _ ) ->
+        ( GotProfileMsg subMsg, Profile login_  ) ->
+            updateWith Profile GotProfileMsg model (Profile.update subMsg login_)
+        ( a, b ) ->
+            let
+                c = Debug.log "Shouldn't be here: " (a, b)
+            in
             noOp model
 
 updateWith : (subModel -> Model) -> (subMsg -> Msg) -> Model -> ( subModel, Cmd subMsg ) -> ( Model, Cmd Msg )
@@ -197,6 +202,9 @@ view model =
         Login model_ ->
             viewPage GotLoginMsg (Login.view model_)
 
+        Profile profile_ ->
+            viewPage GotProfileMsg (Profile.view profile_)
+
 
 
 viewBody : Html msg -> Html msg -> Html msg
@@ -211,7 +219,7 @@ viewBody content footer =
 header_ : Html msg
 header_ =
     header [class "flex flex-col"]
-        [ div [ class "flex flex-row justify-center" ]
+        [ div [ class "flex flex-row justify-center" ] [ a [ Route.href Route.Home ]
             [ span [ class "tertiary-container on-tertiary-container-text letter"] [ text "o" ]
             , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter"] [ text "t" ]
             , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter"] [ text "o" ]
@@ -220,7 +228,7 @@ header_ =
             , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "v" ]
             , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "a" ]
             , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "r" ]
-            ]
+            ]]
         , div [ class "text-s pt-2 justify-center"] [ text "The game you've been waiting for so long"]
         ]
 
