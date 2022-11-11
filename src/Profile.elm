@@ -1,10 +1,11 @@
 module Profile exposing (..)
 
 import Html exposing (Html, a, button, div, h3, img, main_, span, text)
-import Html.Attributes exposing (attribute, class, src, style)
+import Html.Attributes exposing (attribute, class, id, src, style)
 import Html.Events exposing (onClick)
 import Http
 import Json.Encode as Encode
+import Login exposing (cleanUrl)
 import Route
 import Session exposing (Session)
 import Url
@@ -100,28 +101,28 @@ view model =
             Nothing -> text "SHOULDN'T BE POSSIBLE"
             Just me ->
                 case model.flow of
-                    Success other -> successContent me other
+                    Success other -> successContent (model |> toSession) me other
                     NotAsked -> text "NOT ASKED"
                     Loading -> text "LOADING"
                     Failure e -> text "ERROR"
     }
 
-successContent : User -> User.FullInfo -> Html Msg
-successContent me other =
+successContent : Session -> User -> User.FullInfo -> Html Msg
+successContent session me other =
     let
         friendButton =
             if other.uid == (User.info me).uid then
-                actionButton { icon = "share", title = "Share", action = AddFriendRequested other }
+                shareButton other session
             else
                  if other.isFriend then
-                    actionButton { icon = "person_remove", title = "Remove", action = RemoveFriendRequested other }
+                    actionButton { icon = "person_remove", title = "Remove", action = RemoveFriendRequested other, id_ = "remove" }
                  else
-                    actionButton { icon = "person_add", title = "Add", action = AddFriendRequested other }
+                    actionButton { icon = "person_add", title = "Add", action = AddFriendRequested other, id_ = "add" }
         playButton =
             if other.uid == (User.info me).uid then
                 text ""
             else
-                actionButton { icon = "sports_esports", title = "Play", action = AddFriendRequested other }
+                actionButton { icon = "sports_esports", title = "Play", action = AddFriendRequested other, id_ = "play" }
     in
     div [class "profile-page container mx-auto px-4 mt-10 md:mt-28 md:max-w-5xl"]
             [ div [ class "relative flex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
@@ -162,22 +163,36 @@ successContent me other =
             , friendsList me other
             ]
 
+friendsList : User -> User.FullInfo -> Html msg
 friendsList me other =
     let
         friends = other.friends |> Maybe.withDefault []
     in
-    if other.uid == (User.info me).uid && List.length friends > 0 then
+    if List.length friends > 0 && (other.uid == (User.info me).uid || other.isFriend) then
         div
             [ class "relative flex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
             [ div [class "tertiary-container on-tertiary-container-text rounded-t-lg py-2 px-4 font-bold"] [text "Friends" ]
-            , div [] (List.map (\x -> friend me x ) friends)
+            , div [ class "divide-y divide-pink-200"] (List.map (\x -> friend me x ) friends)
             ]
 
     else
         text ""
 
-friend : a -> User.Info -> Html msg
+friend : User -> User.Info -> Html msg
 friend me other =
+    let
+        playButton =
+            if (User.info me |> .uid) == other.uid then
+                text ""
+            else
+                button
+                    [ class "primary on-primary-text text-white font-bold inline-block flex items-center leading-normal uppercase text-xs rounded outline-none focus:outline-none ease-linear transition-all duration-150"
+                    , class "px-3 py-2 m-1 mb-1"
+                    , class "filter drop-shadow"
+                    ]
+                    [ span [ class "material-icons md-18" ][ text "sports_esports"]
+                    ]
+    in
      div
         [ class "flex flex-row items-center"]
         [ a
@@ -199,25 +214,36 @@ friend me other =
             ]
         , span
             [ class "mr-2"]
-            [ button
-                  [ class "primary on-primary-text text-white font-bold inline-block flex items-center leading-normal uppercase text-xs rounded outline-none focus:outline-none ease-linear transition-all duration-150"
-                  , class "px-3 py-2 m-1 mb-1"
-                  , class "filter drop-shadow"
-                  ]
-                  [ span [ class "material-icons md-18" ][ text "sports_esports"]
-                  ]
+            [ playButton
             ]
         ]
 
+shareButton userInfo session =
+    let
+        rootUrl = session |> Session.url |> Login.rootUrl
+        route = Url.toString {rootUrl | path = (userInfo |> .uid |> Route.Profile |> Route.routeToString)}
+    in
+    Html.node "clipboard-copy"
+        [ Html.Attributes.value route, class "flex w-10 w-10 primary on-primary-text min-w-min"
+        , class "primary on-primary-text text-white font-bold inline-block flex items-center leading-normal uppercase text-xs rounded outline-none focus:outline-none ease-linear transition-all duration-150"
+        , class "whitespace-nowrap px-4 py-2 m-1 mb-1"
+        , class "filter drop-shadow"
+        ]
+        [ span
+            [ class "material-icons md-18 mr-2" ]
+            [ text "share"]
+        , text "Copy URL"
+        ]
 
 --actionButton : { a | icon : String, title : String, action :  } -> Html msg
-actionButton : { a | icon : String, title : String, action : Msg } -> Html Msg
-actionButton {icon, title, action} =
+actionButton : { a | icon : String, title : String, action : Msg, id_ : String } -> Html Msg
+actionButton {icon, title, action, id_} =
     button
         [ class "primary on-primary-text text-white font-bold inline-block flex items-center leading-normal uppercase text-xs rounded outline-none focus:outline-none ease-linear transition-all duration-150"
         , class "px-4 py-2 m-1 mb-1"
         , class "filter drop-shadow"
         , onClick action
+        , id id_
         ]
         [ span [ class "material-icons md-18 mr-2" ][ text icon]
         , text title

@@ -3,6 +3,7 @@
 import "./tailwind.css";
 require("./theme.css");
 require("./styles.scss");
+import '@github/clipboard-copy-element';
 
 const {Elm} = require('./Main');
 

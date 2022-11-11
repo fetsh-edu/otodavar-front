@@ -54,5 +54,8 @@
     },
     "prettier": {
         "tabWidth": 4
+    },
+    "dependencies": {
+        "@github/clipboard-copy-element": "^1.1.2"
     }
 }
