@@ -15,6 +15,7 @@ import Json.Encode as Encode
 import Jwt exposing (decodeToken, errorToString)
 import OAuth exposing (ErrorCode(..), ResponseType(..), Token)
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..), defaultAuthorizationErrorParser, defaultErrorParser, defaultTokenParser)
+import Route
 import Session exposing (Session, navKey)
 import Url exposing (Protocol(..), Url)
 import Url.Parser as Url exposing ((<?>))
@@ -31,7 +32,10 @@ type alias Model =
 init : Session ->  (Model, Cmd Msg)
 init session =
     ( { session = session, flow = Idle}
-    , Cmd.none
+    , if Session.isGuest session then
+        Cmd.none
+      else
+        Navigation.pushUrl (Session.navKey session) (Route.routeToString Route.Home)
     )
 
 type Flow
@@ -139,6 +143,9 @@ update msg model =
         GotOtoUser (Ok user) ->
             ( { model | flow = Processing}, Session.login user )
         GotOtoUser (Err error) ->
+            let
+                a = Debug.log "A? " error
+            in
             ({ model | flow = Erred (ErrHTTPGetUserInfo error)}, Cmd.none)
         GotSession session ->
             ( { model | flow = Processing, session = session }
@@ -299,24 +306,27 @@ expectJsonWithHeader : (Result Http.Error value -> msg) -> Decode.Decoder a -> (
 expectJsonWithHeader toMsg decoder combiner =
   expectStringResponse toMsg <|
     \response ->
-      case response of
-        Http.BadUrl_ url ->
-          Err (Http.BadUrl url)
+        let
+            a = Debug.log "Response" response
+        in
+          case response of
+            Http.BadUrl_ url ->
+              Err (Http.BadUrl url)
 
-        Http.Timeout_ ->
-          Err Http.Timeout
+            Http.Timeout_ ->
+              Err Http.Timeout
 
-        Http.NetworkError_ ->
-          Err Http.NetworkError
+            Http.NetworkError_ ->
+              Err Http.NetworkError
 
-        Http.BadStatus_ metadata body ->
-          Err (Http.BadStatus metadata.statusCode)
+            Http.BadStatus_ metadata body ->
+              Err (Http.BadStatus metadata.statusCode)
 
-        Http.GoodStatus_ metadata body ->
-          case Decode.decodeString decoder body of
-            Ok value ->
-                case Dict.get "authorization" metadata.headers of
-                    Just bearer -> Ok (combiner (Bearer bearer) value)
-                    Nothing -> Err (BadBody "No Authorization token")
-            Err err ->
-              Err (BadBody (Decode.errorToString err))
+            Http.GoodStatus_ metadata body ->
+              case Decode.decodeString decoder body of
+                Ok value ->
+                    case Dict.get "authorization" metadata.headers of
+                        Just bearer -> Ok (combiner (Bearer bearer) value)
+                        Nothing -> Err (BadBody "No Authorization token")
+                Err err ->
+                  Err (BadBody (Decode.errorToString err))

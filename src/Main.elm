@@ -228,6 +228,9 @@ header_ =
             , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "v" ]
             , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "a" ]
             , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "r" ]
+            , span
+                [ class "-ml-1.5 background on-background-text letter border border-gray-100" ]
+                [ span [ class "material-icons md-18" ] [ text "notifications" ] ]
             ]]
         , div [ class "text-s pt-2 justify-center"] [ text "The game you've been waiting for so long"]
         ]

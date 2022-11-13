@@ -77,7 +77,7 @@ decode key url_ value =
         Ok Nothing ->
             Guest key url_ Nothing
         Err error ->
-            Guest key url_ (Just (ErrCacheParse error))
+            Guest key url_ (Just (ErrCacheParse (Debug.log "Error: " error)))
 
 port storeSession : Maybe Decode.Value -> Cmd msg
 port onSessionChange : (Encode.Value -> msg) -> Sub msg

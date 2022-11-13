@@ -7,6 +7,7 @@ import Json.Encode as Encode exposing (Value)
 import User.Avatar as Avatar exposing (Avatar)
 import User.Bearer as Bearer exposing (Bearer)
 import User.Email as Email exposing (Email)
+import User.FriendStatus as FriendStatus
 import User.Name as Name exposing (Name)
 import User.Uid as Uid exposing (Uid)
 
@@ -23,21 +24,20 @@ type alias Info =
     , uid : Uid
     , avatar : Avatar
     , name : Name
+    , friendStatus : FriendStatus.Status
     }
-
-type Player
-    = Acquaintance Info
-    | Friend FullInfo
 
 type alias FullInfo =
     { email : Email
     , uid : Uid
     , avatar : Avatar
     , name : Name
-    , isFriend : Bool
+    , friendStatus : FriendStatus.Status
     , gamesCount : Int
     , friendsCount : Int
-    , friends : Maybe (List Info)
+    , friends : List Info
+    , incomingFriendRequests : List Info
+    , outgoingFriendRequests : List Info
     }
 
 build : Bearer -> Info -> User
@@ -81,38 +81,43 @@ decoderNullable = Decode.nullable decoder
 
 
 encodeInfo : Info -> Value
-encodeInfo { email, avatar, name, uid } =
+encodeInfo { email, avatar, name, uid, friendStatus } =
     Encode.object
         [ ( "email", Email.encode email)
         , ( "uid", Uid.encode uid)
         , ( "avatar", Avatar.encode avatar )
         , ( "name", Name.encode name )
+        , ( "friend_status", FriendStatus.encode friendStatus )
         ]
 
 decoderInfo : Decoder Info
 decoderInfo =
-    Decode.map4 Info
+    Decode.map5 Info
         (Decode.field "email" Email.decoder)
         (Decode.field "uid" Uid.decoder)
         (Decode.field "avatar" Avatar.decoder)
         (Decode.field "name" Name.decoder)
+        (Decode.field "friend_status" FriendStatus.decoder)
 
 decoderInfo2 : Decoder Info
 decoderInfo2 =
-    Decode.map4 Info
+    Decode.map5 Info
         (at ["data", "email"] Email.decoder)
         (at ["data", "uid"] Uid.decoder)
         (at ["data", "avatar"] Avatar.decoder)
         (at ["data", "name"] Name.decoder)
+        (at ["data", "friend_status"] FriendStatus.decoder)
 
 decoderFullInfo : Decoder FullInfo
 decoderFullInfo =
-    Decode.map8 FullInfo
-         (Decode.field "email" Email.decoder)
-         (Decode.field "uid" Uid.decoder)
-         (Decode.field "avatar" Avatar.decoder)
-         (Decode.field "name" Name.decoder)
-         (Decode.field "is_friend" Decode.bool)
-         (Decode.field "games_count" Decode.int)
-         (Decode.field "friends_count" Decode.int)
-         (Decode.field "friends" (Decode.maybe (Decode.list decoderInfo)))
+    Decode.succeed FullInfo
+         |> Decode.map2 (|>) (Decode.field "email" Email.decoder)
+         |> Decode.map2 (|>) (Decode.field "uid" Uid.decoder)
+         |> Decode.map2 (|>) (Decode.field "avatar" Avatar.decoder)
+         |> Decode.map2 (|>) (Decode.field "name" Name.decoder)
+         |> Decode.map2 (|>) (Decode.field "friend_status" FriendStatus.decoder)
+         |> Decode.map2 (|>) (Decode.field "games_count" Decode.int)
+         |> Decode.map2 (|>) (Decode.field "friends_count" Decode.int)
+         |> Decode.map2 (|>) (Decode.field "friends" (Decode.list decoderInfo))
+         |> Decode.map2 (|>) (Decode.field "incoming_friend_requests" (Decode.list decoderInfo))
+         |> Decode.map2 (|>) (Decode.field "outgoing_friend_requests" (Decode.list decoderInfo))
