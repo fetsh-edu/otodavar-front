@@ -1,9 +1,9 @@
-module Notifications exposing (..)
+port module Notifications exposing (..)
 
 import Html exposing (Html, a, p, text)
 import Html.Attributes exposing (class)
 import Iso8601
-import Json.Decode as Decode exposing (Decoder, list)
+import Json.Decode as Decode exposing (Decoder, Error, list)
 import Json.Encode as Encode exposing (Value)
 import OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
@@ -34,6 +34,7 @@ type Payload
 
 type Msg
     = GotNotifications (WebData (List Notification))
+    | GotNotification (Result Error Notification)
     | NoOp
 
 initModel =
@@ -139,3 +140,6 @@ view notification =
 
     in
     p [ class "text-sm text-gray-500 p-2", class bold] [ a [ href_ ] [text text_] ]
+
+
+port onNotification : (Encode.Value -> msg) -> Sub msg

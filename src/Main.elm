@@ -10,7 +10,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Login exposing (convertBytes)
 import Maybe
-import Notifications exposing (Notification, Notifications)
+import Notifications exposing (Notification, Notifications, onNotification)
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import Profile
 import RemoteData exposing (WebData)
@@ -37,6 +37,7 @@ subscriptions model =
             Sub.batch
                 [ randomBytes (GotLoginMsg << Login.GotRandomBytes)
                 , Session.changes (SessionEmerged) (toSession model)
+                , onNotification (GotNotificationsMsg << Notifications.GotNotification << Decode.decodeValue Notifications.decoder)
                 ]
     in
     defSub
@@ -177,7 +178,12 @@ update msg model =
                     , Navigation.load href
                     )
         ( ChangedUrl url, _ ) ->
-            changeRouteTo (Route.fromUrl url) (toggleNotifications model False)
+            let
+                (toggledModel, toggledCmd) = toggleNotifications model False
+                (newModel, newCmd) = changeRouteTo (Route.fromUrl url) toggledModel
+            in
+            (newModel, Cmd.batch [toggledCmd, newCmd])
+
 
         ( SessionEmerged session, _ ) ->
             let
@@ -199,18 +205,12 @@ update msg model =
         ( GotNotificationsMsg (Notifications.GotNotifications data), _ ) ->
             ((updateNotifications model data), Cmd.none)
         (HideNotifications, _) ->
-            let
-                cmd =
-                    model
-                        |> toSession |> Session.notifications
-                        |> Maybe.map (.items >> RemoteData.withDefault [] >> List.filter (not << .seen))
-                        |> Maybe.andThen (List.head >> Maybe.map .id)
-                        |> Maybe.map (Notifications.markAsSeen (GotNotificationsMsg << Notifications.GotNotifications) (model |> toSession |> Session.bearer))
-                        |> Maybe.withDefault Cmd.none
-            in
-            (toggleNotifications model False, cmd)
+            toggleNotifications model False
         (ShowNotifications, _) ->
-            (toggleNotifications model True, Cmd.none)
+            toggleNotifications model True
+
+        ( GotNotificationsMsg (Notifications.GotNotification n),  _) ->
+            ((appendNotifications model n), Cmd.none)
         ( a, b ) ->
             let
                 c = Debug.log "Shouldn't be here: " (a, b)
@@ -218,14 +218,36 @@ update msg model =
             noOp model
 
 
-toggleNotifications : Model -> Bool -> Model
+toggleNotifications : Model -> Bool -> (Model, Cmd Msg)
 toggleNotifications model bool =
-    (model |> toSession |> Session.updateNotifications (\n -> {n | shown = bool}) |> updateSession) model
+    let
+        cmd =
+            if bool then
+                Cmd.none
+            else
+                model
+                    |> toSession |> Session.notifications
+                    |> Maybe.map (.items >> RemoteData.withDefault [] >> List.filter (not << .seen))
+                    |> Maybe.andThen (List.head >> Maybe.map .id)
+                    |> Maybe.map (Notifications.markAsSeen (GotNotificationsMsg << Notifications.GotNotifications) (model |> toSession |> Session.bearer))
+                    |> Maybe.withDefault Cmd.none
+    in
+    ((model |> toSession |> Session.updateNotifications (\n -> {n | shown = bool}) |> updateSession) model, cmd)
 
 updateNotifications : Model -> (WebData (List Notification)) -> Model
 updateNotifications model data =
     (model |> toSession |> Session.setNotifications data |> updateSession) model
 
+appendNotifications : Model -> (Result Decode.Error Notification) -> Model
+appendNotifications model data =
+    case data of
+        Ok value ->
+            ( model |> toSession
+            |> Session.updateNotifications (\n -> { n | items = RemoteData.map (\i -> value :: i) n.items })
+            |> updateSession
+            ) model
+        Err error ->
+            model
 
 updateSession : Session -> Model -> Model
 updateSession session_ model =

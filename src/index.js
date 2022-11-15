@@ -4,6 +4,7 @@ import "./tailwind.css";
 require("./theme.css");
 require("./styles.scss");
 import '@github/clipboard-copy-element';
+import { createConsumer } from 'actioncable-jwt'
 
 const {Elm} = require('./Main');
 
@@ -17,6 +18,33 @@ const flags = {
 
 var app = Elm.Main.init({flags: flags});
 
+const Sockets = {};
+
+const initConsumer = () => {
+    let bearer = JSON.parse(localStorage.getItem(bearerKey));
+    if (bearer === null) {
+        console.log("No consumer for logged out.");
+        if (Sockets.consumer) {
+            if (Sockets.notificationsSub) {
+                Sockets.consumer.subscriptions.remove(Sockets.notificationsSub);
+                console.log("Removing notifications subscription;")
+            }
+        }
+    } else {
+        Sockets.consumer = createConsumer("wss://localhost:3001/cable", bearer.bearer.split(" ")[1]);
+        Sockets.notificationsSub = Sockets.consumer.subscriptions.create({channel: "NotificationsChannel"}, {
+            initialized: function() { console.log("cable initialized") },
+            connected: function() { console.log("cable: connected") },             // onConnect
+            disconnected: function() { console.log("cable: disconnected") },       // onDisconnect
+            received: (data) => {
+                console.log("cable received: ", data);
+                app.ports.onNotification.send(data);
+            }         // OnReceive
+        })
+    }
+}
+
+initConsumer();
 
 app.ports.storeSession.subscribe(function (val) {
     if (val === null) { // logout
@@ -24,6 +52,7 @@ app.ports.storeSession.subscribe(function (val) {
     } else {
         localStorage.setItem(bearerKey, JSON.stringify(val));
     }
+    initConsumer();
     // send message to Elm to notify session has been saved
     // https://stackoverflow.com/questions/779379/why-is-settimeoutfn-0-sometimes-useful
     setTimeout(function () { app.ports.onSessionChange.send(val); }, 0);
