@@ -5,11 +5,15 @@ import Browser.Navigation as Navigation exposing (Key)
 import Home
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick)
+import Json.Decode as Decode
 import Json.Encode as Encode
 import Login exposing (convertBytes)
 import Maybe
+import Notifications exposing (Notification, Notifications)
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import Profile
+import RemoteData exposing (WebData)
 import Route exposing (Route)
 import Session exposing (Session, logout)
 import Url exposing (Protocol(..), Url)
@@ -32,7 +36,7 @@ subscriptions model =
         defSub =
             Sub.batch
                 [ randomBytes (GotLoginMsg << Login.GotRandomBytes)
-                , Session.changes (GotLoginMsg << Login.GotSession) (Session.navKey (toSession model)) (Session.url (toSession model))
+                , Session.changes (SessionEmerged) (toSession model)
                 ]
     in
     defSub
@@ -61,16 +65,19 @@ init flags url navKey =
     let
         tokenResult = Login.parseToken url
         maybeBytes = Maybe.map convertBytes flags.bytes
-        session url_ = Session.decode navKey url_ flags.bearer
+        session url_ = Session.decode (Session.guest navKey url_) flags.bearer
     in
     case (tokenResult, maybeBytes) of
-        (OAuth.Empty, _) ->
-            changeRouteTo (Route.fromUrl url)
-                (Home (Home.initModel (session url)))
         (OAuth.Error error, _) ->
-            ( Login (Login.Model (session url) (Login.Erred (Login.ErrAuthorization error))), Cmd.none )
+            session url
+                |> Login.initModel
+                |> Login.update (Login.GotInitAuthError (Login.ErrAuthorization error))
+                |> updateWith Login GotLoginMsg
         (OAuth.Success _, Nothing) ->
-            ( Login (Login.Model (session url) (Login.Erred Login.ErrStateMismatch)), Cmd.none )
+            session url
+                |> Login.initModel
+                |> Login.update (Login.GotInitAuthError Login.ErrStateMismatch)
+                |> updateWith Login GotLoginMsg
         (OAuth.Success { accessToken, state, idToken } , Just bytes) ->
             let
                 (state_, redirectUrl) =
@@ -80,9 +87,20 @@ init flags url navKey =
                         _ -> (Nothing, url)
             in
             if state_ /= Just bytes.state || idToken.parsed.nonce /= bytes.state then
-                ( Login (Login.Model (session url) (Login.Erred Login.ErrStateMismatch)), Cmd.none )
+                session url
+                    |> Login.initModel
+                    |> Login.update (Login.GotInitAuthError Login.ErrStateMismatch)
+                    |> updateWith Login GotLoginMsg
             else
-                ( Login (Login.Model (session redirectUrl) Login.Processing), Cmd.map GotLoginMsg (Login.getOtoBearer idToken))
+                session redirectUrl
+                    |> Login.initModel
+                    |> Login.update (Login.GotGoogleToken idToken)
+                    |> updateWith Login GotLoginMsg
+        (OAuth.Empty, _) ->
+            changeRouteTo
+                (Route.fromUrl url)
+                (Home (Home.initModel (session url)))
+                |> (\(a, b) -> (a, Cmd.batch[b, Notifications.get (GotNotificationsMsg << Notifications.GotNotifications) (Session.bearer (session url))]))
 
 
 toSession : Model -> Session
@@ -108,13 +126,13 @@ changeRouteTo maybeRoute model =
             Nothing ->
                 ( model, Route.replaceUrl (Session.navKey session) Route.Home )
             Just Route.Logout ->
-                (Login (Login.Model session Login.Idle), logout)
+                (model, Session.logout)
             Just Route.Login ->
-                updateWith Login GotLoginMsg model (Login.init session)
+                updateWith Login GotLoginMsg (Login.init session)
             Just Route.Home ->
-                updateWith Home GotHomeMsg model (Home.init session)
+                updateWith Home GotHomeMsg (Home.init session)
             Just (Route.Profile uid) ->
-                updateWith Profile GotProfileMsg model (Profile.init session uid)
+                updateWith Profile GotProfileMsg (Profile.init session uid)
 
 
 -- ---------------------------
@@ -126,9 +144,13 @@ type Msg
     = NoOp
     | ChangedUrl Url
     | ClickedLink Browser.UrlRequest
+    | SessionEmerged Session
     | GotHomeMsg Home.Msg
     | GotLoginMsg Login.Msg
     | GotProfileMsg Profile.Msg
+    | GotNotificationsMsg Notifications.Msg
+    | HideNotifications
+    | ShowNotifications
 
 
 
@@ -155,21 +177,65 @@ update msg model =
                     , Navigation.load href
                     )
         ( ChangedUrl url, _ ) ->
-            changeRouteTo (Route.fromUrl url) model
+            changeRouteTo (Route.fromUrl url) (toggleNotifications model False)
+
+        ( SessionEmerged session, _ ) ->
+            let
+                initUrl = model |> toSession |> Session.url |> Login.cleanUrl |> Url.toString
+                newModel = Login <| Login.initModel session
+            in
+            (newModel, Cmd.batch
+                [ Navigation.replaceUrl (Session.navKey session) initUrl
+                , Notifications.get (GotNotificationsMsg << Notifications.GotNotifications) (Session.bearer session)
+                ]
+            )
 
         ( GotLoginMsg subMsg, Login login_  ) ->
-            updateWith Login GotLoginMsg model (Login.update subMsg login_)
+            updateWith Login GotLoginMsg (Login.update subMsg login_)
 
         ( GotProfileMsg subMsg, Profile login_  ) ->
-            updateWith Profile GotProfileMsg model (Profile.update subMsg login_)
+            updateWith Profile GotProfileMsg (Profile.update subMsg login_)
+
+        ( GotNotificationsMsg (Notifications.GotNotifications data), _ ) ->
+            ((updateNotifications model data), Cmd.none)
+        (HideNotifications, _) ->
+            let
+                cmd =
+                    model
+                        |> toSession |> Session.notifications
+                        |> Maybe.map (.items >> RemoteData.withDefault [] >> List.filter (not << .seen))
+                        |> Maybe.andThen (List.head >> Maybe.map .id)
+                        |> Maybe.map (Notifications.markAsSeen (GotNotificationsMsg << Notifications.GotNotifications) (model |> toSession |> Session.bearer))
+                        |> Maybe.withDefault Cmd.none
+            in
+            (toggleNotifications model False, cmd)
+        (ShowNotifications, _) ->
+            (toggleNotifications model True, Cmd.none)
         ( a, b ) ->
             let
                 c = Debug.log "Shouldn't be here: " (a, b)
             in
             noOp model
 
-updateWith : (subModel -> Model) -> (subMsg -> Msg) -> Model -> ( subModel, Cmd subMsg ) -> ( Model, Cmd Msg )
-updateWith toModel toMsg model ( subModel, subCmd ) =
+
+toggleNotifications : Model -> Bool -> Model
+toggleNotifications model bool =
+    (model |> toSession |> Session.updateNotifications (\n -> {n | shown = bool}) |> updateSession) model
+
+updateNotifications : Model -> (WebData (List Notification)) -> Model
+updateNotifications model data =
+    (model |> toSession |> Session.setNotifications data |> updateSession) model
+
+
+updateSession : Session -> Model -> Model
+updateSession session_ model =
+    case model of
+        Home subModel ->  subModel |> Home.updateSession session_ |> Home
+        Login subModel ->  subModel |> Login.updateSession session_ |> Login
+        Profile subModel ->  subModel |> Profile.updateSession session_ |> Profile
+
+updateWith : (subModel -> Model) -> (subMsg -> Msg) -> ( subModel, Cmd subMsg ) -> ( Model, Cmd Msg )
+updateWith toModel toMsg ( subModel, subCmd ) =
     ( toModel subModel
     , Cmd.map toMsg subCmd
     )
@@ -186,66 +252,135 @@ noOp model =
 view : Model -> Document Msg
 view model =
     let
-        viewPage toMsg config =
+        mapOver : (a -> Msg) -> Document a -> Document Msg
+        mapOver toMsg subView =
             let
-                { title, body } =
-                    viewHelper (Session.user (toSession model)) config
+                { title, body } = subView
             in
-            { title = title
-            , body = List.map (Html.map toMsg) body
+            { title = "oto|davar " ++ title
+            , body =
+                [ main_ [ class "surface on-surface-text pt-10"
+                        , style "height" "100%"
+                        , style "color-scheme" "dark"
+                        ]
+                        [ header_ model
+                        , div [] (List.map (Html.map toMsg) body)
+                        , footer_ (model |> toSession |> Session.user)
+                        ]
+                ]
             }
     in
     case model of
-        Home session ->
-            viewPage GotHomeMsg { title = "Game", content = Home.view session }
-
-        Login model_ ->
-            viewPage GotLoginMsg (Login.view model_)
-
-        Profile profile_ ->
-            viewPage GotProfileMsg (Profile.view profile_)
+        Home subModel ->    Home.view subModel |> mapOver GotHomeMsg
+        Login subModel ->   Login.view subModel |> mapOver GotLoginMsg
+        Profile subModel -> Profile.view subModel |> mapOver GotProfileMsg
 
 
-
-viewBody : Html msg -> Html msg -> Html msg
-viewBody content footer =
-    main_ [class "surface on-surface-text pt-10", style "height" "100%", style "color-scheme" "dark"]
-        [ header_
-        , content
-        , footer
-        ]
-
-
-header_ : Html msg
-header_ =
-    header [class "flex flex-col"]
-        [ div [ class "flex flex-row justify-center" ] [ a [ Route.href Route.Home ]
-            [ span [ class "tertiary-container on-tertiary-container-text letter"] [ text "o" ]
-            , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter"] [ text "t" ]
-            , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter"] [ text "o" ]
-            , span [ class "secondary-container on-secondary-container-text letter"] [ text "d" ]
-            , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "a" ]
-            , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "v" ]
-            , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "a" ]
-            , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "r" ]
-            , span
-                [ class "-ml-1.5 background on-background-text letter border border-gray-100" ]
-                [ span [ class "material-icons md-18" ] [ text "notifications" ] ]
-            ]]
+header_ : Model -> Html Msg
+header_ model =
+    let
+        notificationPillVisibility =
+            model
+                |> toSession
+                |> Session.notifications
+                |> Maybe.map
+                    ( .items
+                    >> RemoteData.withDefault []
+                    >> List.any (.seen >> not)
+                    )
+                |> Maybe.withDefault False
+        notificationPill =
+            if notificationPillVisibility then
+                span
+                    [ class "flex absolute h-3 w-3 top-0 right-0 -mt-1 -mr-1"]
+                    [ span
+                        [ class "animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" ]
+                        []
+                    , span
+                        [ class "relative inline-flex rounded-full h-3 w-3 bg-purple-500" ]
+                        []
+                    ]
+            else
+                text ""
+    in
+    header [class "flex flex-col container relative"]
+        [ span
+            [ class "background on-background-text letter border border-gray-100 absolute top-0 left-0 mx-2 -mt-2" ]
+            [ span [ class "material-icons md-18" ] [ text "notifications" ] ]
+        , span
+            [ class "cursor-pointer background on-background-text letter border border-gray-100 absolute top-0 right-0 mx-2 -mt-2"
+            , onClick ShowNotifications]
+            [ span [ class "material-icons md-18" ] [ text "notifications" ]
+            , notificationPill
+            ]
+        , div
+            [ class "flex flex-row justify-center" ]
+            [ a
+                [ Route.href Route.Home ]
+                [ span [ class "tertiary-container on-tertiary-container-text letter"] [ text "o" ]
+                , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter"] [ text "t" ]
+                , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter"] [ text "o" ]
+                , span [ class "secondary-container on-secondary-container-text letter"] [ text "d" ]
+                , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "a" ]
+                , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "v" ]
+                , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "a" ]
+                , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "r" ]
+                ]
+            ]
         , div [ class "text-s pt-2 justify-center"] [ text "The game you've been waiting for so long"]
+        , modal model
         ]
 
-viewFooter : Maybe User -> Html msg
-viewFooter user =
+
+modal : Model -> Html Msg
+modal model =
+    case model |> toSession |> Session.notifications of
+        Nothing -> text ""
+        Just notifications ->
+            let
+                visibility =
+                    if notifications.shown then
+                        ""
+                    else
+                        "hidden"
+                notifications_ =
+                    case notifications.items of
+                        RemoteData.NotAsked -> [ text "Not Asked" ]
+                        RemoteData.Loading -> [ text "Loading" ]
+                        RemoteData.Failure e -> [text "Error"]
+                        RemoteData.Success a -> a |> List.map Notifications.view
+
+
+            in
+            div
+                [ class "fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 py-4 px-4"
+                , class visibility
+                , onClick HideNotifications
+                ]
+                [ div
+                    [ class "mx-auto border w-full md:max-w-md shadow-lg rounded-md bg-white h-full flex flex-col"
+                    , onClickStopPropagation NoOp
+                    ]
+                    [ h3
+                        [ class "border-b border-gray-200 text-center pt-3 pb-3 flex-none text-lg leading-6 font-medium text-gray-900 relative"]
+                        [ text "Notifications"
+                        , span [ onClick HideNotifications, class "material-icons md-24 absolute right-0 pr-4 cursor-pointer" ] [ text "close" ]
+                        ]
+                    , div
+                        [ class "overflow-y-auto flex-growpy-3 divide-y divide-gray-100" ]
+                        notifications_
+                    ]
+                ]
+
+
+onClickStopPropagation : msg -> Html.Attribute msg
+onClickStopPropagation msg =
+    Html.Events.stopPropagationOn "click" <| Decode.succeed ( msg, True )
+
+footer_ : Maybe User -> Html msg
+footer_ user =
     case user of
         Nothing -> text ""
         Just user_ ->
             div [ class "flex flex-col m-10 justify-center items-center"]
                 [ a [ Route.href Route.Logout ] [ text "Sign out" ]]
-
-
-viewHelper : Maybe User -> { title : String, content : Html msg } -> Document msg
-viewHelper maybeViewer { title, content } =
-    { title = "oto|davar " ++ title
-    , body = [viewBody content (viewFooter maybeViewer)]
-    }

@@ -81,3 +81,37 @@ button {
   margin-right: 6px;
   vertical-align: top;
 }
+
+
+.modal.show .modal-dialog {
+  transform: none;
+}
+.modal.fade .modal-dialog {
+  transition: transform .3s ease-out;
+  transform: translate(0,-50px);
+}
+.pointer-events-none {
+  pointer-events: none;
+}
+@media (min-width: 576px) {
+  .modal-dialog-scrollable {
+    height: calc(100% - 3.5rem);
+  }
+  .modal-dialog {
+    max-width: 500px;
+    margin: 1.75rem auto;
+  }
+}
+.modal-dialog-scrollable {
+  height: calc(100% - 1rem);
+}
+.modal-dialog {
+  margin: 0.5rem;
+}
+.modal-dialog-scrollable .modal-content {
+  max-height: 100%;
+  overflow: hidden;
+}
+.fade {
+  transition: opacity .15s linear;
+}

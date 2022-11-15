@@ -1,5 +1,6 @@
 module Profile exposing (..)
 
+import Browser exposing (Document)
 import Html exposing (Html, a, button, div, h3, img, main_, span, text)
 import Html.Attributes exposing (attribute, class, disabled, id, src, style)
 import Html.Events exposing (onClick)
@@ -38,6 +39,10 @@ init : Session -> Uid -> (Model, Cmd Msg)
 init session uid =
     ({session = session, uid = uid, flow = Loading, friendRequest = NotAsked}, get session uid)
 
+
+updateSession : Session -> Model -> Model
+updateSession session model =
+    { model | session  = session}
 
 toSession : Model -> Session
 toSession { session } = session
@@ -102,24 +107,25 @@ get session uid =
         Just bearer ->
             RemoteData.Http.getWithConfig (config bearer) (url path Nothing) HandleProfileResponse User.decoderFullInfo
 
-view : Model -> { title : String, content : Html Msg }
+view : Model -> Document Msg
 view model =
     { title = "Profile"
-    , content =
+    , body =
         case model |> toSession |> Session.user of
-            Nothing -> text "SHOULDN'T BE POSSIBLE"
+            Nothing -> [ text "SHOULDN'T BE POSSIBLE" ]
             Just me ->
                 case model.flow of
-                    Success pageUser -> successContent (model |> toSession) me pageUser
-                    NotAsked -> text "NOT ASKED"
-                    Loading -> container "LOADING"
-                    Failure e -> text "ERROR"
+                    Success pageUser -> [ successContent (model |> toSession) me pageUser]
+                    NotAsked -> [container "NOT ASKED"]
+                    Loading -> [container "LOADING"]
+                    Failure e -> [container "ERROR"]
     }
 
 
+container : String -> Html msg
 container text_ =
     div
-        [ class "flex flex-col m-10 justify-center items-center"]
+        [ class "flex flex-col m-10 justify-center items-center animate-pulse"]
         [ div
             [ class "transition-transform transform w-full md:w-1/2 surface-1 on-surface-text rounded-lg flex flex-row p-4 mb-8 text-lg shadow-md justify-center items-center" ]
             [ span

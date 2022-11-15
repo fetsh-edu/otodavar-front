@@ -14,6 +14,10 @@ routes =
         , accept = (\{uid, resource} -> url ("/api/v1/users/" ++ (Uid.toString uid) ++ "/accept") (resourceQuery resource))
         , request = (\{uid, resource} -> url ("/api/v1/users/" ++ (Uid.toString uid) ++ "/friend") (resourceQuery resource))
         }
+    , notifications =
+        { index = url ("/api/v1/notifications") Nothing
+        , markAsSeen = url ("/api/v1/notifications/mark_as_seen") Nothing
+        }
     }
 
 url : String -> Maybe String -> String
