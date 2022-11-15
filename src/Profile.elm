@@ -109,7 +109,9 @@ get session uid =
 
 view : Model -> Document Msg
 view model =
-    { title = "Profile"
+    { title
+        = model.flow |> RemoteData.map (.name >> Name.toString) |> RemoteData.withDefault "Profile"
+
     , body =
         case model |> toSession |> Session.user of
             Nothing -> [ text "SHOULDN'T BE POSSIBLE" ]
