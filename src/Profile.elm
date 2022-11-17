@@ -163,7 +163,7 @@ successContent session me pageUser =
             else
                 text ""
     in
-    div [class "profile-page container mx-auto px-4 mt-10 md:mt-28 md:max-w-5xl"]
+    div [class "profile-page container mx-auto px-4 mt-6 md:mt-28 md:max-w-5xl"]
             [ div [ class "relative flex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
                 [ div [ class "px-4 md:px-6 py-4 md:py-0"]
                     [ div [ class "flex flex-row md:flex-col justify-between" ]

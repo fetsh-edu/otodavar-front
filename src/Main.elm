@@ -281,7 +281,7 @@ view model =
             in
             { title = "oto|davar " ++ title
             , body =
-                [ main_ [ class "surface on-surface-text pt-10"
+                [ main_ [ class "surface on-surface-text pt-4 md:pt-10"
                         , style "height" "100%"
                         , style "color-scheme" "dark"
                         ]
@@ -325,12 +325,12 @@ header_ model =
             else
                 text ""
     in
-    header [class "flex flex-col container relative"]
+    header [class "flex flex-col container md:max-w-5xl relative"]
         [ span
-            [ class "background on-background-text letter border border-gray-100 absolute top-0 left-0 mx-2 -mt-2" ]
+            [ class "background on-background-text letter border border-gray-100 absolute top-0 left-0 ml-4" ]
             [ span [ class "material-icons md-18" ] [ text "notifications" ] ]
         , span
-            [ class "cursor-pointer background on-background-text letter border border-gray-100 absolute top-0 right-0 mx-2 -mt-2"
+            [ class "cursor-pointer background on-background-text letter border border-gray-100 absolute top-0 right-0 mr-4"
             , onClick ShowNotifications]
             [ span [ class "material-icons md-18" ] [ text "notifications" ]
             , notificationPill
@@ -349,7 +349,7 @@ header_ model =
                 , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "r" ]
                 ]
             ]
-        , div [ class "text-s pt-2 justify-center"] [ text "The game you've been waiting for so long"]
+        , div [ class "secondary-text text-sm md:text-base pt-2 justify-center"] [ text "The game you've been waiting for so long"]
         , modal model
         ]
 
