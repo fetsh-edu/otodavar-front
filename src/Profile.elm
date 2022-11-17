@@ -107,8 +107,12 @@ get session uid =
         Just bearer ->
             RemoteData.Http.getWithConfig (config bearer) (url path Nothing) HandleProfileResponse User.decoderFullInfo
 
-view : Model -> Document Msg
-view model =
+type alias Translator msg =
+    { toSelf : Msg -> msg
+    }
+
+view : Translator msg -> Model -> Document msg
+view translator model =
     { title
         = model.flow |> RemoteData.map (.name >> Name.toString) |> RemoteData.withDefault "Profile"
 
@@ -117,7 +121,7 @@ view model =
             Nothing -> [ text "SHOULDN'T BE POSSIBLE" ]
             Just me ->
                 case model.flow of
-                    Success pageUser -> [ successContent (model |> toSession) me pageUser]
+                    Success pageUser -> [ successContent translator (model |> toSession) me pageUser]
                     NotAsked -> [container "NOT ASKED"]
                     Loading -> [container "LOADING"]
                     Failure e -> [container "ERROR"]
@@ -139,8 +143,8 @@ container text_ =
 
 
 
-successContent : Session -> User -> User.FullInfo -> Html Msg
-successContent session me pageUser =
+successContent : Translator msg -> Session -> User -> User.FullInfo -> Html msg
+successContent ({ toSelf } as translator) session me pageUser =
     let
         friendButton =
             if pageUser.uid == (User.info me).uid then
@@ -149,13 +153,13 @@ successContent session me pageUser =
                  case pageUser.friendStatus of
                      Me -> text ""
                      Unknown ->
-                         actionButton { icon = "person_add", title = Just "Add", action = Just (AddFriendRequested { friend = pageUser.uid, resource = pageUser.uid}), id_ = "add" }
+                         actionButton { icon = "person_add", title = Just "Add", action = Just (toSelf (AddFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "add" }
                      Friend ->
-                         actionButton { icon = "person_remove", title = Just "Remove", action = Just (RemoveFriendRequested { friend = pageUser.uid, resource = pageUser.uid}), id_ = "remove" }
+                         actionButton { icon = "person_remove", title = Just "Remove", action = Just (toSelf (RemoveFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove" }
                      Requested ->
                          actionButton { icon = "hourglass_top", title = Just "Pending approval", action = Nothing, id_ = "remove" }
                      Wannabe ->
-                         actionButton { icon = "person_add", title = Just "Accept", action = Just (AcceptFriendRequested { friend = pageUser.uid, resource = pageUser.uid}), id_ = "remove" }
+                         actionButton { icon = "person_add", title = Just "Accept", action = Just (toSelf (AcceptFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove" }
                     --
         playButton =
             if pageUser.friendStatus == Friend then
@@ -199,20 +203,20 @@ successContent session me pageUser =
                         ]
                     ]
                 ]
-            , incomingRequests me pageUser
-            , friendsList me pageUser
+            , incomingRequests translator me pageUser
+            , friendsList translator me pageUser
             , pendingApproval me pageUser
             ]
 
 
-incomingRequests : User -> User.FullInfo -> Html Msg
-incomingRequests me pageUser =
+incomingRequests : Translator msg -> User -> User.FullInfo -> Html msg
+incomingRequests { toSelf } me pageUser =
     let
         actionButton_ user =
             actionButton
                 { icon = "person_add"
                 , title = Nothing
-                , action = Just (AcceptFriendRequested {friend = user.uid, resource = pageUser.uid})
+                , action = Just (toSelf (AcceptFriendRequested {friend = user.uid, resource = pageUser.uid}))
                 , id_ = "accept" ++ (Uid.toString user.uid)
                 }
     in
@@ -229,10 +233,10 @@ pendingApproval me other =
     else
         text ""
 
-friendsList : User -> User.FullInfo -> Html Msg
-friendsList me pageUser =
+friendsList : Translator msg -> User -> User.FullInfo -> Html msg
+friendsList ( { toSelf } as translator) me pageUser =
     let
-        actionButton_ : User.Info -> Html Msg
+        actionButton_ : User.Info -> Html msg
         actionButton_ user =
             case user.friendStatus of
                 Me ->
@@ -255,14 +259,14 @@ friendsList me pageUser =
                     actionButton
                         { icon = "person_add"
                         , title = Nothing
-                        , action = Just (AcceptFriendRequested {friend = user.uid, resource = pageUser.uid})
+                        , action = Just (toSelf (AcceptFriendRequested {friend = user.uid, resource = pageUser.uid}))
                         , id_ = "accept" ++ (Uid.toString user.uid)
                         }
                 Unknown ->
                     actionButton
                         { icon = "person_add"
                         , title = Nothing
-                        , action = Just (AddFriendRequested { friend = user.uid, resource = pageUser.uid})
+                        , action = Just (toSelf (AddFriendRequested { friend = user.uid, resource = pageUser.uid}))
                         , id_ = "add_friend" ++ (Uid.toString user.uid)
                         }
 
@@ -331,7 +335,7 @@ shareButton userInfo session =
         , text "Copy URL"
         ]
 
-actionButton : { a | icon : String, title : Maybe String, action : Maybe Msg, id_ : String } -> Html Msg
+actionButton : { a | icon : String, title : Maybe String, action : Maybe msg, id_ : String } -> Html msg
 actionButton {icon, title, action, id_} =
     let
         disabled_ =

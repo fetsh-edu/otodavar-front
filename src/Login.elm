@@ -69,9 +69,12 @@ type Msg
     | GotGoogleToken IdToken
     | GotOtoUser (Result Http.Error User)
 
+type alias Translator msg =
+    { toSelf : Msg -> msg
+    }
 
-view : Model -> Document Msg
-view model =
+view : Translator msg -> Model -> Document msg
+view translator model =
     let
         container some =
             div [ class "flex mt-32 justify-center items-center"]
@@ -91,13 +94,13 @@ view model =
                         Session.Guest _ _ Nothing ->
                             div []
                                 [ div [] [ text "You are a Guest" ]
-                                , signInButton
+                                , signInButton translator
                                 ]
                                 |> container
                         Session.Guest _ _ (Just er_) ->
                             div []
                                 [ div [] [ text "You are a Guest because there were errors." ]
-                                , signInButton
+                                , signInButton translator
                                 ]
                                 |> container
 
@@ -116,7 +119,7 @@ view model =
     }
 
 
-errorView : Error -> Html Msg
+errorView : Error -> Html msg
 errorView error =
     div [ class "flex m-10 justify-center items-center"]
         [ div [ class "w-full md:w-1/2 error-container on-error-container-text rounded-lg flex flex-row p-4 mb-8 text-sm shadow-md focus:outline-none focus:shadow-outline-purple" ]
@@ -126,7 +129,7 @@ errorView error =
         ]
 
 
-viewError : Error -> Html Msg
+viewError : Error -> Html msg
 viewError e =
     text <|
         case e of
@@ -155,9 +158,9 @@ oauthErrorToString { error, errorDescription } =
     OAuth.errorCodeToString error ++ ": " ++ desc
 
 
-signInButton : Html Msg
-signInButton =
-    div [ style "height" "50px", style "width" "240px", class "abcRioButton abcRioButtonBlue", onClick SignInRequested]
+signInButton : Translator msg -> Html msg
+signInButton { toSelf } =
+    div [ style "height" "50px", style "width" "240px", class "abcRioButton abcRioButtonBlue", onClick (toSelf SignInRequested)]
         [ div [ class "abcRioButtonContentWrapper"]
             [ div [ class "abcRioButtonIcon", style "padding" "15px"]
                 [ div [ style "width" "18px", style "height" "18px", class "abcRioButtonSvgImageWithFallback abcRioButtonIconImage abcRioButtonIconImage18"]

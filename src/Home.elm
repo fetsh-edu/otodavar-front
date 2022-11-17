@@ -30,7 +30,7 @@ toSession : Model -> Session
 toSession model =
     model.session
 
-view : Model -> Document Msg
+view : Model -> Document msg
 view model =
     let
         body =

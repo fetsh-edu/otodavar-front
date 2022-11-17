@@ -1,4 +1,4 @@
-port module Main exposing (Model, Msg(..), init, main, update, view)
+port module Main exposing (Model, init, main, update, view)
 
 import Browser exposing (Document, application)
 import Browser.Navigation as Navigation exposing (Key)
@@ -10,6 +10,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Login exposing (convertBytes)
 import Maybe
+import Msg exposing (Msg(..))
 import Notifications exposing (Notification, Notifications, onNotification)
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import Profile
@@ -137,29 +138,14 @@ changeRouteTo maybeRoute model =
 
 
 -- ---------------------------
--- UPDATE
+-- PORTS
 -- ---------------------------
-
-
-type Msg
-    = NoOp
-    | ChangedUrl Url
-    | ClickedLink Browser.UrlRequest
-    | SessionEmerged Session
-    | GotHomeMsg Home.Msg
-    | GotLoginMsg Login.Msg
-    | GotProfileMsg Profile.Msg
-    | GotNotificationsMsg Notifications.Msg
-    | HideNotifications
-    | ShowNotifications
-
-
 
 port randomBytes : (List Int -> msg) -> Sub msg
 
---
--- Update
---
+-- ---------------------------
+-- UPDATE
+-- ---------------------------
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -204,13 +190,16 @@ update msg model =
 
         ( GotNotificationsMsg (Notifications.GotNotifications data), _ ) ->
             ((updateNotifications model data), Cmd.none)
+        ( GotNotificationsMsg (Notifications.GotNotification n),  _) ->
+            ((appendNotifications model n), Cmd.none)
+
         (HideNotifications, _) ->
             toggleNotifications model False
         (ShowNotifications, _) ->
             toggleNotifications model True
 
-        ( GotNotificationsMsg (Notifications.GotNotification n),  _) ->
-            ((appendNotifications model n), Cmd.none)
+
+
         ( a, b ) ->
             let
                 c = Debug.log "Shouldn't be here: " (a, b)
@@ -274,8 +263,8 @@ noOp model =
 view : Model -> Document Msg
 view model =
     let
-        mapOver : (a -> Msg) -> Document a -> Document Msg
-        mapOver toMsg subView =
+        mapOver : Document Msg -> Document Msg
+        mapOver subView =
             let
                 { title, body } = subView
             in
@@ -286,16 +275,17 @@ view model =
                         , style "color-scheme" "dark"
                         ]
                         [ header_ model
-                        , div [] (List.map (Html.map toMsg) body)
+                        , div [] body
                         , footer_ (model |> toSession |> Session.user)
                         ]
                 ]
             }
     in
     case model of
-        Home subModel ->    Home.view subModel |> mapOver GotHomeMsg
-        Login subModel ->   Login.view subModel |> mapOver GotLoginMsg
-        Profile subModel -> Profile.view subModel |> mapOver GotProfileMsg
+        Home subModel ->    Home.view subModel |> mapOver
+        Login subModel ->   Login.view { toSelf = GotLoginMsg } subModel |> mapOver
+        Profile subModel -> Profile.view  { toSelf = GotProfileMsg } subModel |> mapOver
+
 
 
 header_ : Model -> Html Msg
