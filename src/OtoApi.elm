@@ -18,6 +18,9 @@ routes =
         { index = url ("/api/v1/notifications") Nothing
         , markAsSeen = url ("/api/v1/notifications/mark_as_seen") Nothing
         }
+    , game =
+        { start = url ("/api/v1/games/join") Nothing
+        }
     }
 
 url : String -> Maybe String -> String

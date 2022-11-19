@@ -109,6 +109,7 @@ get session uid =
 
 type alias Translator msg =
     { toSelf : Msg -> msg
+    , onGameStart : Maybe Uid -> msg
     }
 
 view : Translator msg -> Model -> Document msg
@@ -144,7 +145,7 @@ container text_ =
 
 
 successContent : Translator msg -> Session -> User -> User.FullInfo -> Html msg
-successContent ({ toSelf } as translator) session me pageUser =
+successContent ({ toSelf, onGameStart } as translator) session me pageUser =
     let
         friendButton =
             if pageUser.uid == (User.info me).uid then
@@ -163,7 +164,7 @@ successContent ({ toSelf } as translator) session me pageUser =
                     --
         playButton =
             if pageUser.friendStatus == Friend then
-                actionButton { icon = "sports_esports", title = Just "Play", action = Nothing, id_ = "play" }
+                actionButton { icon = "sports_esports", title = Just "Play", action = Just <| onGameStart <| Just <| pageUser.uid, id_ = "play" }
             else
                 text ""
     in
@@ -220,21 +221,27 @@ incomingRequests { toSelf } me pageUser =
                 , id_ = "accept" ++ (Uid.toString user.uid)
                 }
     in
-    if List.length pageUser.incomingFriendRequests > 0 && (pageUser.uid == (User.info me).uid) then
-        userList actionButton_ "Friend requests" "secondary-container on-secondary-container-text" pageUser.incomingFriendRequests
-    else
-        text ""
+    case pageUser.incomingFriendRequests of
+        Nothing -> text ""
+        Just users ->
+            if List.length users > 0 && (pageUser.uid == (User.info me).uid) then
+                userList actionButton_ "Friend requests" "secondary-container on-secondary-container-text" users
+            else
+                text ""
 
 
 pendingApproval : User -> User.FullInfo -> Html msg
 pendingApproval me other =
-    if List.length other.outgoingFriendRequests > 0 && (other.uid == (User.info me).uid) then
-        userList (\x -> text "") "Pending" "error-container on-error-container-text" other.outgoingFriendRequests
-    else
-        text ""
+    case other.outgoingFriendRequests of
+        Nothing -> text ""
+        Just users ->
+            if List.length users > 0 && (other.uid == (User.info me).uid) then
+                userList (\x -> text "") "Pending" "error-container on-error-container-text" users
+            else
+                text ""
 
 friendsList : Translator msg -> User -> User.FullInfo -> Html msg
-friendsList ( { toSelf } as translator) me pageUser =
+friendsList ( { toSelf, onGameStart } as translator) me pageUser =
     let
         actionButton_ : User.Info -> Html msg
         actionButton_ user =
@@ -245,7 +252,7 @@ friendsList ( { toSelf } as translator) me pageUser =
                     actionButton
                         { icon = "sports_esports"
                         , title = Nothing
-                        , action = Nothing
+                        , action = Just <| onGameStart <| Just <| user.uid
                         , id_ = "play" ++ (Uid.toString user.uid)
                         }
                 Requested ->
@@ -271,10 +278,13 @@ friendsList ( { toSelf } as translator) me pageUser =
                         }
 
     in
-    if List.length pageUser.friends > 0 && (pageUser.uid == (User.info me).uid || pageUser.friendStatus == Friend) then
-        userList actionButton_ "Friends" "tertiary-container on-tertiary-container-text" pageUser.friends
-    else
-        text ""
+    case pageUser.friends of
+        Nothing -> text ""
+        Just users ->
+            if List.length users > 0 && (pageUser.uid == (User.info me).uid || pageUser.friendStatus == Friend) then
+                userList actionButton_ "Friends" "tertiary-container on-tertiary-container-text" users
+            else
+                text ""
 
 
 userList : (User.Info -> Html msg) -> String -> String -> List User.Info -> Html msg

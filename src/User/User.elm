@@ -35,9 +35,9 @@ type alias FullInfo =
     , friendStatus : FriendStatus.Status
     , gamesCount : Int
     , friendsCount : Int
-    , friends : List Info
-    , incomingFriendRequests : List Info
-    , outgoingFriendRequests : List Info
+    , friends : Maybe (List Info)
+    , incomingFriendRequests : Maybe (List Info)
+    , outgoingFriendRequests : Maybe (List Info)
     }
 
 build : Bearer -> Info -> User
@@ -118,6 +118,6 @@ decoderFullInfo =
          |> Decode.map2 (|>) (Decode.field "friend_status" FriendStatus.decoder)
          |> Decode.map2 (|>) (Decode.field "games_count" Decode.int)
          |> Decode.map2 (|>) (Decode.field "friends_count" Decode.int)
-         |> Decode.map2 (|>) (Decode.field "friends" (Decode.list decoderInfo))
-         |> Decode.map2 (|>) (Decode.field "incoming_friend_requests" (Decode.list decoderInfo))
-         |> Decode.map2 (|>) (Decode.field "outgoing_friend_requests" (Decode.list decoderInfo))
+         |> Decode.map2 (|>) (Decode.maybe (Decode.field "friends" (Decode.list decoderInfo)))
+         |> Decode.map2 (|>) (Decode.maybe (Decode.field "incoming_friends" (Decode.list decoderInfo)))
+         |> Decode.map2 (|>) (Decode.maybe (Decode.field "outgoing_friends" (Decode.list decoderInfo)))

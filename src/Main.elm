@@ -2,6 +2,7 @@ port module Main exposing (Model, init, main, update, view)
 
 import Browser exposing (Document, application)
 import Browser.Navigation as Navigation exposing (Key)
+import Game
 import Home
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -55,6 +56,7 @@ type Model
     = Home Home.Model
     | Login Login.Model
     | Profile Profile.Model
+    | Game Game.Model
 
 
 type alias Flags =
@@ -111,6 +113,7 @@ toSession page =
         Home session -> Home.toSession session
         Login model -> Login.toSession model
         Profile profile -> Profile.toSession profile
+        Game game -> Game.toSession game
 
 
 changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
@@ -163,13 +166,9 @@ update msg model =
                     ( model
                     , Navigation.load href
                     )
-        ( ChangedUrl url, _ ) ->
-            let
-                (toggledModel, toggledCmd) = toggleNotifications model False
-                (newModel, newCmd) = changeRouteTo (Route.fromUrl url) toggledModel
-            in
-            (newModel, Cmd.batch [toggledCmd, newCmd])
 
+        ( ChangedUrl url, _ ) ->
+            changeRouteTo (Route.fromUrl url) model
 
         ( SessionEmerged session, _ ) ->
             let
@@ -184,28 +183,37 @@ update msg model =
 
         ( GotLoginMsg subMsg, Login login_  ) ->
             updateWith Login GotLoginMsg (Login.update subMsg login_)
+        ( GotLoginMsg _, _ ) -> noOp model
+
 
         ( GotProfileMsg subMsg, Profile login_  ) ->
             updateWith Profile GotProfileMsg (Profile.update subMsg login_)
+        ( GotProfileMsg _, _) -> noOp model
 
-        ( GotNotificationsMsg (Notifications.GotNotifications data), _ ) ->
-            ((updateNotifications model data), Cmd.none)
-        ( GotNotificationsMsg (Notifications.GotNotification n),  _) ->
-            ((appendNotifications model n), Cmd.none)
+
+        ( GotNotificationsMsg (Notifications.GotNotifications data), any ) ->
+            noOp (updateNotifications any data)
+        ( GotNotificationsMsg (Notifications.GotNotification n), any) ->
+            noOp (appendNotifications any n)
+
 
         (HideNotifications, _) ->
             toggleNotifications model False
         (ShowNotifications, _) ->
             toggleNotifications model True
 
+        -- TODO: Home is not implemented
+        ( GotHomeMsg _, _ ) -> noOp model
 
-
-        ( a, b ) ->
+        -- TODO: Game is not implemented
+        ( LaunchGame maybeUid, _) ->
             let
-                c = Debug.log "Shouldn't be here: " (a, b)
+                session = model |> toSession
             in
-            noOp model
-
+            (session |> Game.initModel |> Game, Cmd.map GotGameMsg (Game.launchCmd session maybeUid))
+        ( GotGameMsg subMsg, Game subModel ) ->
+            updateWith Game GotGameMsg (Game.update subMsg subModel)
+        ( GotGameMsg _, _) -> noOp model
 
 toggleNotifications : Model -> Bool -> (Model, Cmd Msg)
 toggleNotifications model bool =
@@ -220,8 +228,12 @@ toggleNotifications model bool =
                     |> Maybe.andThen (List.head >> Maybe.map .id)
                     |> Maybe.map (Notifications.markAsSeen (GotNotificationsMsg << Notifications.GotNotifications) (model |> toSession |> Session.bearer))
                     |> Maybe.withDefault Cmd.none
+
+        newSession = model |> toSession |> Session.updateNotifications (\n -> {n | shown = bool})
+
+        newModel = model |> updateSession newSession
     in
-    ((model |> toSession |> Session.updateNotifications (\n -> {n | shown = bool}) |> updateSession) model, cmd)
+    (newModel, cmd)
 
 updateNotifications : Model -> (WebData (List Notification)) -> Model
 updateNotifications model data =
@@ -238,12 +250,15 @@ appendNotifications model data =
         Err error ->
             model
 
+
 updateSession : Session -> Model -> Model
 updateSession session_ model =
     case model of
         Home subModel ->  subModel |> Home.updateSession session_ |> Home
         Login subModel ->  subModel |> Login.updateSession session_ |> Login
         Profile subModel ->  subModel |> Profile.updateSession session_ |> Profile
+        Game subModel ->  subModel |> Game.updateSession session_ |> Game
+
 
 updateWith : (subModel -> Model) -> (subMsg -> Msg) -> ( subModel, Cmd subMsg ) -> ( Model, Cmd Msg )
 updateWith toModel toMsg ( subModel, subCmd ) =
@@ -284,7 +299,8 @@ view model =
     case model of
         Home subModel ->    Home.view subModel |> mapOver
         Login subModel ->   Login.view { toSelf = GotLoginMsg } subModel |> mapOver
-        Profile subModel -> Profile.view  { toSelf = GotProfileMsg } subModel |> mapOver
+        Profile subModel -> Profile.view  { toSelf = GotProfileMsg, onGameStart = LaunchGame } subModel |> mapOver
+        Game subModel ->    Game.view { toSelf = GotGameMsg } subModel |> mapOver
 
 
 
@@ -360,7 +376,7 @@ modal model =
                         RemoteData.NotAsked -> [ text "Not Asked" ]
                         RemoteData.Loading -> [ text "Loading" ]
                         RemoteData.Failure e -> [text "Error"]
-                        RemoteData.Success a -> a |> List.map Notifications.view
+                        RemoteData.Success a -> a |> List.map ( Notifications.view { onExit = HideNotifications} )
 
 
             in

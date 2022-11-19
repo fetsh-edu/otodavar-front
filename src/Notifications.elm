@@ -2,6 +2,7 @@ port module Notifications exposing (..)
 
 import Html exposing (Html, a, p, text)
 import Html.Attributes exposing (class)
+import Html.Events exposing (onClick)
 import Iso8601
 import Json.Decode as Decode exposing (Decoder, Error, list)
 import Json.Encode as Encode exposing (Value)
@@ -35,7 +36,6 @@ type Payload
 type Msg
     = GotNotifications (WebData (List Notification))
     | GotNotification (Result Error Notification)
-    | NoOp
 
 initModel =
     { shown = False
@@ -113,8 +113,8 @@ encode { id } =
 
 
 
-view : Notification -> Html msg
-view notification =
+view : { onExit : msg } -> Notification -> Html msg
+view { onExit } notification =
     let
         bold =
             if notification.seen then
@@ -139,7 +139,7 @@ view notification =
 
 
     in
-    p [ class "text-sm text-gray-500 p-2", class bold] [ a [ href_ ] [text text_] ]
+    p [ class "text-sm text-gray-500 p-2", class bold] [ a [ href_, onClick onExit ] [text text_] ]
 
 
 port onNotification : (Encode.Value -> msg) -> Sub msg
