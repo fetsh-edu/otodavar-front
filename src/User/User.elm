@@ -16,15 +16,24 @@ type User
 
 type alias Internals =
     { bearer : Bearer
-    , info : Info
+    , info : UserInfo
     }
 
-type alias Info =
+type alias UserInfo =
     { email : Email
     , uid : Uid
     , avatar : Avatar
     , name : Name
-    , friendStatus : FriendStatus.Status
+    , friends : List SimpleInfo
+    , incomingFriendRequests : List SimpleInfo
+    , outgoingFriendRequests : List SimpleInfo
+    }
+
+type alias SimpleInfo =
+    { email : Email
+    , uid : Uid
+    , avatar : Avatar
+    , name : Name
     }
 
 type alias FullInfo =
@@ -32,22 +41,35 @@ type alias FullInfo =
     , uid : Uid
     , avatar : Avatar
     , name : Name
-    , friendStatus : FriendStatus.Status
     , gamesCount : Int
     , friendsCount : Int
-    , friends : Maybe (List Info)
-    , incomingFriendRequests : Maybe (List Info)
-    , outgoingFriendRequests : Maybe (List Info)
+    , friends : Maybe (List SimpleInfo)
+    , incomingFriendRequests : Maybe (List SimpleInfo)
+    , outgoingFriendRequests : Maybe (List SimpleInfo)
     }
 
-build : Bearer -> Info -> User
+
+friendStatus : User -> Uid -> FriendStatus.Status
+friendStatus user uid =
+    if (user |> info |> .uid) == uid then
+        FriendStatus.Me
+    else if (user |> info |> .friends |> List.any (\x -> x.uid == uid) ) then
+        FriendStatus.Friend
+    else if (user |> info |> .incomingFriendRequests |> List.any (\x -> x.uid == uid) ) then
+        FriendStatus.Wannabe
+    else if (user |> info |> .outgoingFriendRequests |> List.any (\x -> x.uid == uid) ) then
+        FriendStatus.Requested
+    else
+        FriendStatus.Unknown
+
+build : Bearer -> UserInfo -> User
 build a b = User (Internals a b)
 
 bearer : User -> Bearer
 bearer (User intern) =
     intern.bearer
 
-info : User -> Info
+info : User -> UserInfo
 info (User intern) =
     intern.info
 
@@ -65,7 +87,7 @@ encode : User -> Value
 encode (User intern) =
     Encode.object
         [ ( "bearer", Bearer.encode intern.bearer )
-        , ( "info", encodeInfo intern.info )
+        , ( "info", encodeUserInfo intern.info )
         ]
 
 decoder : Decoder User
@@ -73,40 +95,63 @@ decoder =
     Decode.map User
         (Decode.map2 Internals
             (Decode.field "bearer" Bearer.decoder)
-            (Decode.field "info" decoderInfo))
+            (Decode.field "info" decoderUserInfo))
 
 decoderNullable : Decoder (Maybe User)
 decoderNullable = Decode.nullable decoder
 
+encodeUserInfo : UserInfo -> Value
+encodeUserInfo uInfo =
+    Encode.object
+        [ ( "email", Email.encode uInfo.email)
+        , ( "uid", Uid.encode uInfo.uid)
+        , ( "avatar", Avatar.encode uInfo.avatar )
+        , ( "name", Name.encode uInfo.name )
+        , ( "friends", (Encode.list encodeInfo uInfo.friends) )
+        , ( "incoming_friends", (Encode.list encodeInfo uInfo.incomingFriendRequests) )
+        , ( "outgoing_friends", (Encode.list encodeInfo uInfo.outgoingFriendRequests) )
+        ]
 
-
-encodeInfo : Info -> Value
-encodeInfo { email, avatar, name, uid, friendStatus } =
+encodeInfo : SimpleInfo -> Value
+encodeInfo { email, avatar, name, uid } =
     Encode.object
         [ ( "email", Email.encode email)
         , ( "uid", Uid.encode uid)
         , ( "avatar", Avatar.encode avatar )
         , ( "name", Name.encode name )
-        , ( "friend_status", FriendStatus.encode friendStatus )
         ]
 
-decoderInfo : Decoder Info
-decoderInfo =
-    Decode.map5 Info
+decoderUserInfo : Decoder UserInfo
+decoderUserInfo =
+    Decode.map7 UserInfo
         (Decode.field "email" Email.decoder)
         (Decode.field "uid" Uid.decoder)
         (Decode.field "avatar" Avatar.decoder)
         (Decode.field "name" Name.decoder)
-        (Decode.field "friend_status" FriendStatus.decoder)
+        (Decode.field "friends" (Decode.list decoderInfo))
+        (Decode.field "incoming_friends" (Decode.list decoderInfo))
+        (Decode.field "outgoing_friends" (Decode.list decoderInfo))
 
-decoderInfo2 : Decoder Info
-decoderInfo2 =
-    Decode.map5 Info
+decoderInfo : Decoder SimpleInfo
+decoderInfo =
+    Decode.map4 SimpleInfo
+        (Decode.field "email" Email.decoder)
+        (Decode.field "uid" Uid.decoder)
+        (Decode.field "avatar" Avatar.decoder)
+        (Decode.field "name" Name.decoder)
+
+
+-- TODO: Check
+decoderUserInfo2 : Decoder UserInfo
+decoderUserInfo2 =
+    Decode.map7 UserInfo
         (at ["data", "email"] Email.decoder)
         (at ["data", "uid"] Uid.decoder)
         (at ["data", "avatar"] Avatar.decoder)
         (at ["data", "name"] Name.decoder)
-        (at ["data", "friend_status"] FriendStatus.decoder)
+        (at ["data", "friends"] (Decode.list decoderInfo))
+        (at ["data", "incoming_friends"] (Decode.list decoderInfo))
+        (at ["data", "outgoing_friends"] (Decode.list decoderInfo))
 
 decoderFullInfo : Decoder FullInfo
 decoderFullInfo =
@@ -115,7 +160,6 @@ decoderFullInfo =
          |> Decode.map2 (|>) (Decode.field "uid" Uid.decoder)
          |> Decode.map2 (|>) (Decode.field "avatar" Avatar.decoder)
          |> Decode.map2 (|>) (Decode.field "name" Name.decoder)
-         |> Decode.map2 (|>) (Decode.field "friend_status" FriendStatus.decoder)
          |> Decode.map2 (|>) (Decode.field "games_count" Decode.int)
          |> Decode.map2 (|>) (Decode.field "friends_count" Decode.int)
          |> Decode.map2 (|>) (Decode.maybe (Decode.field "friends" (Decode.list decoderInfo)))

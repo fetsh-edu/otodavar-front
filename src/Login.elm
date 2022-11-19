@@ -23,7 +23,7 @@ import Url.Parser.Query as Query
 import User.Bearer exposing (Bearer(..))
 import User.Config exposing (configuration)
 import User.Name as Name
-import User.User as User exposing (User, decoderInfo2)
+import User.User as User exposing (User, decoderUserInfo2)
 
 type alias Model =
     { session : Session
@@ -290,7 +290,7 @@ getOtoBearer toCmd token =
         , body = Http.jsonBody (encodeToken token)
         , headers = [(Http.header "Accept" "application/json")]
         , url = Url.toString configuration.userInfoEndpoint
-        , expect = expectJsonWithHeader toCmd decoderInfo2 User.build
+        , expect = expectJsonWithHeader toCmd decoderUserInfo2 User.build
         , timeout = Nothing
         , tracker = Nothing
         }

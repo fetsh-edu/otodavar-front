@@ -1,25 +1,23 @@
 module Profile exposing (..)
 
 import Browser exposing (Document)
-import Html exposing (Html, a, button, div, h3, img, main_, span, text)
-import Html.Attributes exposing (attribute, class, disabled, id, src, style)
+import Html exposing (Html, a, button, div, h3, img, span, text)
+import Html.Attributes exposing (attribute, class, id, src)
 import Html.Events exposing (onClick)
-import Http
 import Json.Encode as Encode
-import Login exposing (cleanUrl)
+import Login
 import OtoApi exposing (config, url)
 import Route
 import Session exposing (Session)
 import Url
 import User.Avatar as Avatar
 import User.Bearer as Bearer
-import User.Config exposing (defaultHttpsUrl)
 import User.FriendStatus exposing (Status(..))
 import User.Name as Name
 import User.Uid as Uid exposing (Uid)
 import User.User as User exposing (User)
 import RemoteData exposing (RemoteData(..), WebData)
-import RemoteData.Http exposing (defaultConfig)
+import RemoteData.Http
 
 type alias Model =
     { session : Session
@@ -147,11 +145,12 @@ container text_ =
 successContent : Translator msg -> Session -> User -> User.FullInfo -> Html msg
 successContent ({ toSelf, onGameStart } as translator) session me pageUser =
     let
+        friendStatus = User.friendStatus me pageUser.uid
         friendButton =
-            if pageUser.uid == (User.info me).uid then
+            if friendStatus == Me then
                 shareButton pageUser session
             else
-                 case pageUser.friendStatus of
+                 case friendStatus of
                      Me -> text ""
                      Unknown ->
                          actionButton { icon = "person_add", title = Just "Add", action = Just (toSelf (AddFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "add" }
@@ -163,7 +162,7 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser =
                          actionButton { icon = "person_add", title = Just "Accept", action = Just (toSelf (AcceptFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove" }
                     --
         playButton =
-            if pageUser.friendStatus == Friend then
+            if friendStatus == Friend then
                 actionButton { icon = "sports_esports", title = Just "Play", action = Just <| onGameStart <| Just <| pageUser.uid, id_ = "play" }
             else
                 text ""
@@ -240,12 +239,16 @@ pendingApproval me other =
             else
                 text ""
 
+
 friendsList : Translator msg -> User -> User.FullInfo -> Html msg
 friendsList ( { toSelf, onGameStart } as translator) me pageUser =
     let
-        actionButton_ : User.Info -> Html msg
+        friendStatus : Status
+        friendStatus = User.friendStatus me pageUser.uid
+
+        actionButton_ : User.SimpleInfo -> Html msg
         actionButton_ user =
-            case user.friendStatus of
+            case User.friendStatus me user.uid of
                 Me ->
                     text ""
                 Friend ->
@@ -281,13 +284,13 @@ friendsList ( { toSelf, onGameStart } as translator) me pageUser =
     case pageUser.friends of
         Nothing -> text ""
         Just users ->
-            if List.length users > 0 && (pageUser.uid == (User.info me).uid || pageUser.friendStatus == Friend) then
+            if List.length users > 0 && (friendStatus == Me || friendStatus == Friend) then
                 userList actionButton_ "Friends" "tertiary-container on-tertiary-container-text" users
             else
                 text ""
 
 
-userList : (User.Info -> Html msg) -> String -> String -> List User.Info -> Html msg
+userList : (User.SimpleInfo -> Html msg) -> String -> String -> List User.SimpleInfo -> Html msg
 userList actionButton_ title_ class_ users =
      div
          [ class "relative flex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
@@ -300,7 +303,7 @@ userList actionButton_ title_ class_ users =
          ]
 
 
-friendView : (User.Info -> Html msg) -> User.Info -> Html msg
+friendView : (User.SimpleInfo -> Html msg) -> User.SimpleInfo -> Html msg
 friendView actionButton_ other =
      div
         [ class "flex flex-row items-center"]

@@ -2,6 +2,7 @@ module User.FriendStatus exposing (..)
 
 import Json.Decode as Decode
 import Json.Encode as Encode exposing (Value)
+
 type Status
     = Me
     | Friend
