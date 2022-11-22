@@ -138,6 +138,8 @@ changeRouteTo maybeRoute model =
                 updateWith Home GotHomeMsg (Home.init session)
             Just (Route.Profile uid) ->
                 updateWith Profile GotProfileMsg (Profile.init session uid)
+            Just (Route.Game uid) ->
+                updateWith Game GotGameMsg (Game.init session uid)
 
 
 -- ---------------------------
@@ -202,7 +204,8 @@ update msg model =
         (ShowNotifications, _) ->
             toggleNotifications model True
 
-        -- TODO: Home is not implemented
+        ( GotHomeMsg subMsg, Home subModel  ) ->
+            updateWith Home GotHomeMsg (Home.update subMsg subModel)
         ( GotHomeMsg _, _ ) -> noOp model
 
         -- TODO: Game is not implemented
@@ -297,7 +300,7 @@ view model =
             }
     in
     case model of
-        Home subModel ->    Home.view subModel |> mapOver
+        Home subModel ->    Home.view {toSelf = GotHomeMsg, onRandomLaunch = LaunchGame} subModel |> mapOver
         Login subModel ->   Login.view { toSelf = GotLoginMsg } subModel |> mapOver
         Profile subModel -> Profile.view  { toSelf = GotProfileMsg, onGameStart = LaunchGame } subModel |> mapOver
         Game subModel ->    Game.view { toSelf = GotGameMsg } subModel |> mapOver
@@ -334,11 +337,11 @@ header_ model =
     header [class "flex flex-col container md:max-w-5xl relative"]
         [ span
             [ class "background on-background-text letter border border-gray-100 absolute top-0 left-0 ml-4" ]
-            [ span [ class "material-icons md-18" ] [ text "notifications" ] ]
+            [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ] ]
         , span
             [ class "cursor-pointer background on-background-text letter border border-gray-100 absolute top-0 right-0 mr-4"
             , onClick ShowNotifications]
-            [ span [ class "material-icons md-18" ] [ text "notifications" ]
+            [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ]
             , notificationPill
             ]
         , div
@@ -392,7 +395,7 @@ modal model =
                     [ h3
                         [ class "border-b border-gray-200 text-center pt-3 pb-3 flex-none text-lg leading-6 font-medium text-gray-900 relative"]
                         [ text "Notifications"
-                        , span [ onClick HideNotifications, class "material-icons md-24 absolute right-0 pr-4 cursor-pointer" ] [ text "close" ]
+                        , span [ onClick HideNotifications, class "material-symbols-outlined md-24 absolute right-0 pr-4 cursor-pointer" ] [ text "close" ]
                         ]
                     , div
                         [ class "overflow-y-auto flex-growpy-3 divide-y divide-gray-100" ]

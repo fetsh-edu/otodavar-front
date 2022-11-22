@@ -18,6 +18,7 @@ import User.Uid as Uid exposing (Uid)
 import User.User as User exposing (User)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
+import View.Helper
 
 type alias Model =
     { session : Session
@@ -98,12 +99,10 @@ friendRequestRemove session {friend, resource} =
 get : Session -> Uid -> Cmd Msg
 get session uid =
     let
-        path = "/api/v1/users/" ++ (Uid.toString uid)
+        url = OtoApi.routes.profile uid
+        message bearer = RemoteData.Http.getWithConfig (config bearer) url HandleProfileResponse User.decoderFullInfo
     in
-    case session |> Session.bearer |> Maybe.map Bearer.toString of
-        Nothing  -> Cmd.none
-        Just bearer ->
-            RemoteData.Http.getWithConfig (config bearer) (url path Nothing) HandleProfileResponse User.decoderFullInfo
+    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 type alias Translator msg =
     { toSelf : Msg -> msg
@@ -121,24 +120,12 @@ view translator model =
             Just me ->
                 case model.flow of
                     Success pageUser -> [ successContent translator (model |> toSession) me pageUser]
-                    NotAsked -> [container "NOT ASKED"]
-                    Loading -> [container "LOADING"]
-                    Failure e -> [container "ERROR"]
+                    NotAsked -> [View.Helper.smallContainer "NOT ASKED"]
+                    Loading -> [View.Helper.smallContainer "LOADING"]
+                    -- TODO: Handle all this
+                    Failure e -> [View.Helper.smallContainer "ERROR"]
     }
 
-
-container : String -> Html msg
-container text_ =
-    div
-        [ class "flex flex-col m-10 justify-center items-center animate-pulse"]
-        [ div
-            [ class "transition-transform transform w-full md:w-1/2 surface-1 on-surface-text rounded-lg flex flex-row p-4 mb-8 text-lg shadow-md justify-center items-center" ]
-            [ span
-                [ class "animate-spin flex justify-center items-center h-14 w-14 material-icons mr-0" ]
-                [ text "refresh"]
-            , span [ class "pl-0 overflow-ellipsis overflow-hidden"] [text text_]
-            ]
-        ]
 
 
 
@@ -343,7 +330,7 @@ shareButton userInfo session =
         , class "filter drop-shadow"
         ]
         [ span
-            [ class "material-icons md-18 mr-2" ]
+            [ class "material-symbols-outlined md-18 mr-2" ]
             [ text "share"]
         , text "Copy URL"
         ]
@@ -376,7 +363,7 @@ actionButton {icon, title, action, id_} =
             , id id_
             , Html.Attributes.disabled disabled_
             ] ++ (action |> Maybe.map (List.singleton << onClick) |> Maybe.withDefault []))
-            [ span [ class "material-icons md-18", class mrClass ][ text icon]
+            [ span [ class "material-symbols-outlined md-18", class mrClass ][ text icon]
             , title |> Maybe.withDefault "" |> text
             ]
 

@@ -1,10 +1,11 @@
 module Game exposing (..)
 
 import Browser exposing (Document)
+import Game.Game as Game exposing (Game)
 import Html exposing (Html, text)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import OtoApi
+import OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Session exposing (Session)
@@ -17,8 +18,6 @@ type alias Model =
     , game : WebData Game
     }
 
-type alias Game = String
-
 type Msg
     = GameReceived (WebData Game)
 
@@ -27,6 +26,10 @@ initModel = Model >> (\x -> x Loading)
 
 toSession : Model -> Session
 toSession = .session
+
+init : Session -> Uid -> (Model, Cmd Msg)
+init session uid =
+    ({session = session, game = Loading}, get session uid)
 
 updateSession : Session -> Model -> Model
 updateSession session model =
@@ -58,8 +61,18 @@ launchCmd session maybeUid =
     in
     session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
+
+get : Session -> Uid -> Cmd Msg
+get session uid =
+    let
+        url = OtoApi.routes.game.show uid
+        message bearer = RemoteData.Http.getWithConfig (config bearer) url GameReceived decoder
+    in
+    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+
+
 decoder : Decoder Game
-decoder = Decode.string
+decoder = Game.decoder
 
 
 type alias Translator msg =

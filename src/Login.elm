@@ -123,7 +123,7 @@ errorView : Error -> Html msg
 errorView error =
     div [ class "flex m-10 justify-center items-center"]
         [ div [ class "w-full md:w-1/2 error-container on-error-container-text rounded-lg flex flex-row p-4 mb-8 text-sm shadow-md focus:outline-none focus:shadow-outline-purple" ]
-            [ span [class "material-icons md-18"] [ text "error" ]
+            [ span [class "material-symbols-outlined md-18"] [ text "error" ]
             , span [ class "ml-3 w-full overflow-ellipsis overflow-hidden" ] [ viewError error ]
             ]
         ]

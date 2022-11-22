@@ -1,44 +1,163 @@
 module Home exposing (..)
 
-
 import Browser exposing (Document)
-import Html exposing (Html, a, div, text)
-import Html.Attributes exposing (class)
+import Game.Game as Game
+import Game.Games as Games exposing (Games)
+import Game.SomeonesGame as SGame exposing (SomeonesGame(..))
+import Html exposing (Html, a, div, img, span, text)
+import Html.Attributes exposing (attribute, class, src)
+import Html.Events exposing (onClick)
+import OtoApi exposing (config)
+import RemoteData exposing (RemoteData(..), WebData)
+import RemoteData.Http
 import Route
 import Session exposing (Session)
-import User.User as User
+import User.Avatar as Avatar
+import User.Bearer as Bearer
+import User.Name as Name
+import User.Uid exposing (Uid)
+import User.User as User exposing (SimpleInfo, User, UserInfo)
+import View.Helper
 
 type alias Model =
     { session : Session
-    , game : String
+    , home : WebData Games
     }
-
-initModel : Session -> Model
-initModel session = {session = session, game = "Game"}
-
-init : Session -> ( Model, Cmd Msg )
-init session = ( initModel session, Cmd.none )
-
-updateSession : Session -> Model -> Model
-updateSession session model =
-    { model | session  = session}
-
-type Msg =
-    NoOp
 
 toSession : Model -> Session
 toSession model =
     model.session
 
-view : Model -> Document msg
-view model =
+initModel : Session -> Model
+initModel session = {session = session, home = NotAsked}
+
+init : Session -> ( Model, Cmd Msg )
+init session =
+    let
+        model = initModel session
+    in
+    ( { model | home = Loading }, get session )
+
+updateSession : Session -> Model -> Model
+updateSession session model =
+    { model | session  = session }
+
+type Msg =
+    HomeReceived (WebData Games)
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    case msg of
+        HomeReceived webData ->
+            ( { model | home = webData }, Cmd.none )
+
+
+type alias Translator msg =
+    { toSelf : Msg -> msg
+    , onRandomLaunch : Maybe Uid -> msg
+    }
+view : Translator msg -> Model -> Document msg
+view translator { session, home } =
     let
         body =
-            case model |> toSession |> Session.user of
-                Nothing -> [text ""]
+            case Session.user session of
+                -- TODO: Handle
+                Nothing -> [ View.Helper.smallContainer "Shouldn't be possible" ]
                 Just user ->
-                    [ a [ class "flex flex-col m-10 justify-center items-center", Route.href (user |> User.info |> .uid |> Route.Profile) ] [User.view user] ]
+                    case home of
+                        NotAsked -> [ View.Helper.smallContainer "Not asked" ]
+                        Loading -> [ View.Helper.smallContainer "loading" ]
+                        Failure e -> [ View.Helper.smallContainer "Failure" ]
+                        Success a -> successContent translator user session a
+
     in
-        { title = "Game"
+        { title = ""
         , body = body
         }
+
+
+successContent : Translator msg -> User -> Session -> Games -> List (Html msg)
+successContent { onRandomLaunch, toSelf } me session games =
+    [ View.Helper.container
+        [ myTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid)) |> List.filter SGame.isMyTurn)
+        , playButtonsSection me games.randomGame onRandomLaunch
+        , partnersTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid)) |> List.filter SGame.isPartnersTurn)
+        ]
+    ]
+
+
+myTurnSection : List SGame.SomeonesGame -> Html msg
+myTurnSection games =
+    gamesSection "Your turn!" "tertiary-container on-tertiary-container-text" games
+
+
+playButtonsSection : User -> Maybe Game.Game -> (Maybe Uid -> msg) -> Html msg
+playButtonsSection a mbGame action=
+    let
+        playAFriend = Just (playAFriendButton (User.info a))
+        playRandom =
+            case mbGame of
+                Just _ -> Nothing
+                Nothing -> Just (playARandomButton action)
+        buttons = [playAFriend, playRandom] |> List.filterMap identity
+    in
+    View.Helper.section "Play a game" "primary on-primary-text  uppercase text-center"
+        buttons
+
+playAFriendButton : { a | uid : Uid} -> Html msg
+playAFriendButton me =
+    div
+        [ class "flex flex-row items-center"]
+        [ a
+            [ Route.href (me |> .uid |> Route.Profile)
+            , class "h-12 w-12 m-2"
+            ]
+            [ span [ class "material-symbols-outlined md-48" ][ text "add_circle" ]
+            ]
+        , a
+            [ Route.href (me |> .uid |> Route.Profile)
+            , class "ml-2 flex-1 py-3"
+            ]
+            [ span
+                []
+                [text "Play a Friend"]
+            ]
+        ]
+
+playARandomButton : (Maybe Uid -> msg) -> Html msg
+playARandomButton action =
+    div
+        [ class "flex flex-row items-center"]
+        [ span
+            [ class "h-12 w-12 m-2"
+            , onClick (action Nothing)
+            ]
+            [ span [ class "material-symbols-outlined md-48" ][ text "auto_awesome" ]
+            ]
+        , span
+            [ class "ml-2 flex-1 py-3"
+            , onClick (action Nothing)
+            ]
+            [ span [] [text "Play a Random Partner"]
+            ]
+        ]
+
+partnersTurnSection : List SGame.SomeonesGame -> Html msg
+partnersTurnSection games =
+    gamesSection "Waiting for partner" "secondary-container on-secondary-container-text" games
+
+
+gamesSection : String -> String -> List SGame.SomeonesGame -> Html msg
+gamesSection title classes games =
+    if List.isEmpty games
+    then text ""
+    else View.Helper.section title (classes ++ " uppercase text-center") (List.map (SGame.view) games)
+
+
+get : Session -> Cmd Msg
+get session =
+    let
+        url = OtoApi.routes.home
+        message bearer = RemoteData.Http.getWithConfig (config bearer) url HomeReceived Games.decoder
+    in
+    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none

@@ -9,7 +9,9 @@ import User.Uid as Uid exposing (Uid)
 
 
 routes =
-    { friend =
+    { profile = (\uid -> url ("/api/v1/users/" ++ (Uid.toString uid)) Nothing )
+    , home = url ("/api/v1/games") Nothing
+    , friend =
         { remove = (\{uid, resource} -> url ("/api/v1/users/" ++ (Uid.toString uid) ++ "/unfriend") (resourceQuery resource))
         , accept = (\{uid, resource} -> url ("/api/v1/users/" ++ (Uid.toString uid) ++ "/accept") (resourceQuery resource))
         , request = (\{uid, resource} -> url ("/api/v1/users/" ++ (Uid.toString uid) ++ "/friend") (resourceQuery resource))
@@ -20,6 +22,7 @@ routes =
         }
     , game =
         { start = url ("/api/v1/games/join") Nothing
+        , show = (\uid -> url ("/api/v1/games/" ++ (Uid.toString uid)) Nothing )
         }
     }
 
