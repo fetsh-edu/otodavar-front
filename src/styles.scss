@@ -21,11 +21,53 @@ button {
     margin-right: 15px;
 }
 
+.shy {
+  border: 0 none;
+  box-shadow: none;
+  outline:0;
+}
+.shy:focus { outline:none!important; }
+
+.speech {
+  position: relative;
+}
+.speech:before,
+.speech:after {
+  content: ' ';
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.speech-right:before {
+  right: 25%;
+  top: -30px;
+  border: 15px solid;
+  border-color: transparent var(--md-sys-color-surface-7) var(--md-sys-color-surface-7) transparent;
+}
+
+.speech-left:after {
+  left: 25%;
+  top: -30px;
+  border: 15px solid;
+  border-color: transparent transparent var(--md-sys-color-surface-7) var(--md-sys-color-surface-7);
+}
+
+.win-glow {
+  background: radial-gradient(circle at center, rgb(150 255 90 / 50%), rgb(255 251 83 / 40%), transparent), 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 
 .material-icons.md-18, .material-symbols-outlined.md-18 { font-size: 18px; }
 .material-icons.md-24, .material-symbols-outlined.md-24 { font-size: 24px; }
 .material-icons.md-36, .material-symbols-outlined.md-36 { font-size: 36px; }
 .material-icons.md-48, .material-symbols-outlined.md-48 { font-size: 48px; }
+.material-icons.md-48, .material-symbols-outlined.md-60 { font-size: 60px; }
+.material-icons.md-48, .material-symbols-outlined.md-72 { font-size: 72px; }
+
 
 .abcRioButton {
   border-radius: 1px;

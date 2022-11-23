@@ -1,11 +1,11 @@
 module Game.Games exposing (..)
 
-import Game.Game as Game exposing (Game)
+import Game.OtoGame as Game exposing (OtoGame)
 import Json.Decode as Decode exposing (Decoder)
 type alias Games =
-    { randomGame : Maybe Game
-    , openGames : List Game
-    , closedGames : List Game
+    { randomGame : Maybe OtoGame
+    , openGames : List OtoGame
+    , closedGames : List OtoGame
     }
 
 decoder : Decoder Games

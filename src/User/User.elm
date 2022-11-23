@@ -36,6 +36,15 @@ type alias SimpleInfo =
     , name : Name
     }
 
+userToSimple : UserInfo -> SimpleInfo
+userToSimple user =
+    { email = user.email
+    , uid = user.uid
+    , avatar = user.avatar
+    , name = user.name
+    }
+
+
 type alias FullInfo =
     { email : Email
     , uid : Uid

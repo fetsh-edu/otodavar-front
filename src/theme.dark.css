@@ -20,6 +20,7 @@
  --md-sys-color-on-background: var(--md-sys-color-on-background-dark);
  --md-sys-color-surface: var(--md-sys-color-surface-dark);
  --md-sys-color-surface-1: rgb(var(--md-sys-color-primary-rgb) / 0.05);
+ --md-sys-color-surface-7: rgb(var(--md-sys-color-surface-dark-rgb) / 0.8);
  --md-sys-color-on-surface: var(--md-sys-color-on-surface-dark);
  --md-sys-color-surface-variant: var(--md-sys-color-surface-variant-dark);
  --md-sys-color-on-surface-variant: var(--md-sys-color-on-surface-variant-dark);

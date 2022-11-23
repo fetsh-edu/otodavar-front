@@ -1,9 +1,9 @@
 module Home exposing (..)
 
 import Browser exposing (Document)
-import Game.Game as Game
+import Game.OtoGame as Game
 import Game.Games as Games exposing (Games)
-import Game.SomeonesGame as SGame exposing (SomeonesGame(..))
+import Game.Game as SGame exposing (Game(..))
 import Html exposing (Html, a, div, img, span, text)
 import Html.Attributes exposing (attribute, class, src)
 import Html.Events exposing (onClick)
@@ -85,13 +85,12 @@ successContent { onRandomLaunch, toSelf } me session games =
         ]
     ]
 
-
-myTurnSection : List SGame.SomeonesGame -> Html msg
+myTurnSection : List SGame.Game -> Html msg
 myTurnSection games =
     gamesSection "Your turn!" "tertiary-container on-tertiary-container-text" games
 
 
-playButtonsSection : User -> Maybe Game.Game -> (Maybe Uid -> msg) -> Html msg
+playButtonsSection : User -> Maybe Game.OtoGame -> (Maybe Uid -> msg) -> Html msg
 playButtonsSection a mbGame action=
     let
         playAFriend = Just (playAFriendButton (User.info a))
@@ -129,25 +128,25 @@ playARandomButton action =
     div
         [ class "flex flex-row items-center"]
         [ span
-            [ class "h-12 w-12 m-2"
+            [ class "h-12 w-12 m-2 cursor-pointer"
             , onClick (action Nothing)
             ]
             [ span [ class "material-symbols-outlined md-48" ][ text "auto_awesome" ]
             ]
         , span
-            [ class "ml-2 flex-1 py-3"
+            [ class "ml-2 flex-1 py-3  cursor-pointer"
             , onClick (action Nothing)
             ]
             [ span [] [text "Play a Random Partner"]
             ]
         ]
 
-partnersTurnSection : List SGame.SomeonesGame -> Html msg
+partnersTurnSection : List SGame.Game -> Html msg
 partnersTurnSection games =
     gamesSection "Waiting for partner" "secondary-container on-secondary-container-text" games
 
 
-gamesSection : String -> String -> List SGame.SomeonesGame -> Html msg
+gamesSection : String -> String -> List SGame.Game -> Html msg
 gamesSection title classes games =
     if List.isEmpty games
     then text ""
