@@ -100,7 +100,7 @@ playButtonsSection a mbGame action=
                 Nothing -> Just (playARandomButton action)
         buttons = [playAFriend, playRandom] |> List.filterMap identity
     in
-    View.Helper.section "Play a game" "primary on-primary-text  uppercase text-center"
+    View.Helper.section "Play a game" "error-container on-error-container-text  uppercase text-center"
         buttons
 
 playAFriendButton : { a | uid : Uid} -> Html msg

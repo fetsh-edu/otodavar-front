@@ -1,5 +1,8 @@
 module Helpers exposing (..)
 
+import Html exposing (Attribute)
+import Html.Events exposing (keyCode, on)
+import Json.Decode as Json
 groupWhile : (a -> a -> Bool) -> List a -> List ( a, List a )
 groupWhile isSameGroup items =
     List.foldr
@@ -46,3 +49,16 @@ dropWhile predicate list =
 
             else
                 list
+
+onEnter : msg -> Attribute msg
+onEnter onEnterAction =
+    on "keyup" <|
+        Json.andThen
+            (\keyCode ->
+                if keyCode == 13 then
+                    Json.succeed onEnterAction
+
+                else
+                    Json.fail (String.fromInt keyCode)
+            )
+            keyCode

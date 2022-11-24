@@ -24,10 +24,8 @@ type State
 payload : State -> Payload
 payload state =
     case state of
-        Mine leftPlayer maybeRightPlayer p_ -> p_
-        Others leftPlayer maybeRightPlayer p_ -> p_
-
-
+        Mine _ _ p_ -> p_
+        Others _ _ p_ -> p_
 
 type Guess
     = NoGuess
@@ -163,7 +161,7 @@ view sGame =
                                     |> (\x -> "round " ++ (String.fromInt x) )
                                     |> text
                                     |> List.singleton
-                                    |> span [class "text-xs uppercase text-gray-500"]
+                                    |> span [class "text-xs uppercase on-surface-variant-text"]
                                 ]
                         Nothing ->
                             span

@@ -5,8 +5,10 @@ import Game.GameStatus as Status
 import Game.OtoGame as OtoGame exposing (OtoGame)
 import Game.Game as Game exposing (Game(..))
 import Game.Round exposing (Round(..))
+import Helpers exposing (onEnter)
 import Html exposing (Html, button, div, input, p, span, text)
-import Html.Attributes exposing (class, placeholder, style)
+import Html.Attributes exposing (class, disabled, placeholder, style, value)
+import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import OtoApi exposing (config)
@@ -23,20 +25,23 @@ import View.Helper
 type alias Model =
     { session : Session
     , game : WebData OtoGame
+    , guess : String
     }
 
 type Msg
     = GameReceived (WebData OtoGame)
+    | OnGuessChange String
+    | SubmitGuess
 
 initModel : Session -> Model
-initModel = Model >> (\x -> x Loading)
+initModel = Model >> (\x -> x Loading "")
 
 toSession : Model -> Session
 toSession = .session
 
 init : Session -> Uid -> (Model, Cmd Msg)
 init session uid =
-    ({session = session, game = Loading}, get session uid)
+    ({session = session, game = Loading, guess = ""}, get session uid)
 
 updateSession : Session -> Model -> Model
 updateSession session model =
@@ -48,6 +53,10 @@ update msg model =
     case msg of
         GameReceived webData ->
             ( { model | game = webData }, Cmd.none)
+        OnGuessChange str ->
+            ( { model | guess = str }, Cmd.none)
+        SubmitGuess ->
+            (model, Cmd.none)
 
 
 launchCmd : Session -> Maybe Uid -> Cmd Msg
@@ -92,24 +101,24 @@ view translator model =
     , body =
         case model |> toSession |> Session.user of
             Nothing -> [ text "SHOULDN'T BE POSSIBLE" ]
-            Just me -> gameView me model.game
+            Just me -> gameView translator me model
     }
 
-gameView : User -> WebData OtoGame -> List (Html msg)
-gameView me game =
+gameView : Translator msg -> User -> Model -> List (Html msg)
+gameView translator me model =
     let
         some =
-            case game of
+            case model.game of
                 -- TODO: Handle this
                 NotAsked -> [ View.Helper.smallContainer "not asked" ]
                 Loading -> [ View.Helper.smallContainer "loading" ]
                 Failure e -> [View.Helper.smallContainer "failure" ]
-                Success a -> successContent me a
+                Success a -> successContent translator me model.guess a
     in
     some
 
-successContent : User -> OtoGame -> List (Html msg)
-successContent me game =
+successContent : Translator msg -> User -> String -> OtoGame -> List (Html msg)
+successContent translator me value_ game =
     let
         sGame = Game.fromGame (User.info me |> .uid) game
     in
@@ -119,15 +128,15 @@ successContent me game =
             [ View.Helper.container
                 [ div
                     [ class "secondary-container on-secondary-container-text rounded-lg relative" ]
-                    [ currentGuess state
+                    [ currentGuess translator value_ state
                     , oldGuesses state
                     ]
                 ]
             ]
 
 
-currentGuess : Game.State -> Html msg
-currentGuess sGame =
+currentGuess : Translator msg -> String -> Game.State -> Html msg
+currentGuess translator value_ sGame =
     let
         leftUser =
             case sGame of
@@ -163,7 +172,7 @@ currentGuess sGame =
                 Game.Others _ _ _ -> text ""
                 Game.Mine _ _ p ->
                     div
-                        [ class "flex z-10 mt-2 surface-7 on-surface-text text-sm p-2 pl-3 w-full rounded-lg filter drop-shadow speech"
+                        [ class "flex z-10 mt-2 surface-7 on-surface-text text-sm p-2 pl-3 w-full h-12 rounded-lg filter drop-shadow speech"
                         , speechClass
                         ] (bubbleContent p)
 
@@ -180,9 +189,14 @@ currentGuess sGame =
                 Status.Open ->
                     case p.guess of
                         Game.LeftGuess w ->
-                            [ div [ class "flex w-full justify-center font-medium text-lg truncate overflow-ellipses"] [span [class "uppercase"] [text w.word]]]
+                            [ div [ class "flex w-full justify-center items-center font-medium text-lg truncate overflow-ellipses"] [span [class "uppercase"] [text w.word]]]
                         _ ->
-                            bubbleInput
+                            bubbleInput translator value_
+        readyBubble =
+            case (Game.payload sGame).guess of
+                Game.RightGuess _ ->
+                    span [ class "thought absolute top-4 px-3 py-1 surface text-sm surface-7 on-surface-text", style "right" "37%"] [ text "ready"]
+                _ -> text ""
 
         question =
             case Game.payload sGame |> .question of
@@ -201,17 +215,36 @@ currentGuess sGame =
         [ class "tertiary-container on-tertiary-container-text rounded-lg p-4 filter drop-shadow overflow-hidden"]
         [ div [class "flex z-10 flex-row justify-around"]
             [ span [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ] [ Avatar.img leftUser.avatar "w-20 h-20  filter drop-shadow", span [] [text leftUserName] ]
-            , span [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ] [ rightUserAvatar, span [class "pt-2 text-sm on-surface-variant-text"] [text rightUserName] ]
+            , span [ class "flex items-center w-40 flex-col truncate overflow-ellipses z-1" ] [ rightUserAvatar, span [class "pt-2 text-sm on-surface-variant-text"] [text rightUserName] ]
             ]
         , glow
         , speechBubble
+        , readyBubble
         , question
         ]
 
-bubbleInput : List (Html msg)
-bubbleInput =
-    [ input [ class "flex-grow border-0 shy bg-transparent", style "appearance" "none", placeholder "SAY IT HERE..." ] []
-    , button [ class "flex-none primary on-primary-text rounded-lg px-4 py-1 font-bold mr-0 ml-1" ] [ text "Say It!" ]
+bubbleInput : Translator msg -> String -> List (Html msg)
+bubbleInput translator value_ =
+    let
+        button_ =
+            if  value_ |> String.trim |> String.isEmpty
+            then text ""
+            else
+                button
+                    [ class "flex-none primary-container on-primary-container-text rounded-lg px-4 py-1 font-bold mr-0 ml-1"
+                    , onClick (translator.toSelf SubmitGuess)
+                    , disabled (value_ |> String.trim |> String.isEmpty)
+                    ]
+                    [ text "Say It!" ]
+    in
+    [ input
+        [ onInput (translator.toSelf << OnGuessChange)
+        , onEnter (translator.toSelf SubmitGuess)
+        , class "flex-grow border-0 shy bg-transparent"
+        , style "appearance" "none"
+        , placeholder "SAY IT HERE..."
+        , value value_  ] []
+    , button_
     ]
 
 type Size = Small | Big
