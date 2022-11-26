@@ -30,6 +30,8 @@ type alias Notification =
 type Payload
     = FriendRequest Uid Name
     | FriendAccept Uid Name
+    | GameCreated Uid Name
+    | GameAccepted Uid Name
     | Unknown String
 
 
@@ -66,6 +68,8 @@ payloadDecoder =
                     case action of
                         "friend_request" -> Decode.map2 FriendRequest |> friendRequestDecoder
                         "friend_accept" -> Decode.map2 FriendAccept |> friendRequestDecoder
+                        "game_created" -> Decode.map2 GameCreated |> friendRequestDecoder
+                        "game_accepted" -> Decode.map2 GameAccepted |> friendRequestDecoder
                         str -> Decode.succeed (Unknown ("Action: " ++ str))
                 )
         , keyValuePairs |> Decode.map Unknown
@@ -112,7 +116,7 @@ encode { id } =
         ]
 
 
-
+-- TODO: Major notifications todo :)
 view : { onExit : msg } -> Notification -> Html msg
 view { onExit } notification =
     let
@@ -126,6 +130,9 @@ view { onExit } notification =
                 FriendRequest uid name -> "FriendRequest: " ++ (User.Name.toString name)
                 FriendAccept uid name -> "FriendAccept: " ++ (User.Name.toString name)
                 Unknown string -> string
+                GameCreated uid name -> "Game created: from " ++ (User.Name.toString name)
+                GameAccepted uid name -> "Random accepted: by " ++ (User.Name.toString name)
+
         href_ =
             case notification.payload of
                 FriendRequest uid name ->
@@ -134,8 +141,16 @@ view { onExit } notification =
                 FriendAccept uid name ->
                     Route.href (uid |> Route.Profile)
 
+                GameCreated uid name ->
+                    Route.href (uid |> Route.Game)
+
+                GameAccepted uid name ->
+                    Route.href (uid |> Route.Game)
+
                 Unknown string ->
                     class ""
+
+
 
 
     in

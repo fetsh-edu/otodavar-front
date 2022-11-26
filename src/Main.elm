@@ -208,7 +208,6 @@ update msg model =
             updateWith Home GotHomeMsg (Home.update subMsg subModel)
         ( GotHomeMsg _, _ ) -> noOp model
 
-        -- TODO: Game is not implemented
         ( LaunchGame maybeUid, _) ->
             let
                 session = model |> toSession
@@ -362,7 +361,7 @@ header_ model =
         , modal model
         ]
 
-
+-- TODO : Design notifications
 modal : Model -> Html Msg
 modal model =
     case model |> toSession |> Session.notifications of

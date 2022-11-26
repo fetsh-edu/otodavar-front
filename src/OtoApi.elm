@@ -24,6 +24,9 @@ routes =
         { start = url ("/api/v1/games/join") Nothing
         , show = (\uid -> url ("/api/v1/games/" ++ (Uid.toString uid)) Nothing )
         }
+    , word =
+        { create = url ("/api/v1/words") Nothing
+        }
     }
 
 url : String -> Maybe String -> String

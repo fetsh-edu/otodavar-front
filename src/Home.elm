@@ -79,9 +79,9 @@ view translator { session, home } =
 successContent : Translator msg -> User -> Session -> Games -> List (Html msg)
 successContent { onRandomLaunch, toSelf } me session games =
     [ View.Helper.container
-        [ myTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid)) |> List.filter SGame.isMyTurn)
+        [ myTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) |> List.filter SGame.isMyTurn)
         , playButtonsSection me games.randomGame onRandomLaunch
-        , partnersTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid)) |> List.filter SGame.isPartnersTurn)
+        , partnersTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) |> List.filter SGame.isPartnersTurn)
         ]
     ]
 

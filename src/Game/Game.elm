@@ -7,6 +7,7 @@ import Game.Word exposing (Word)
 import Helpers exposing (dropWhile, find, maybeFilter)
 import Html exposing (Html, a, div, img, span, text)
 import Html.Attributes exposing (attribute, class, src, style)
+import Json.Decode as Decode exposing (Decoder)
 import Route
 import User.Avatar as Avatar
 import User.Name as Name
@@ -26,6 +27,12 @@ payload state =
     case state of
         Mine _ _ p_ -> p_
         Others _ _ p_ -> p_
+
+uid : Game -> Uid
+uid game =
+    case game of
+        RightState state -> (payload state).uid
+        WrongState otoGame -> otoGame.uid
 
 type Guess
     = NoGuess
@@ -47,17 +54,17 @@ type alias RightPlayer = SimpleInfo
 
 
 
-fromGame : Uid -> OtoGame -> Game
-fromGame me game =
+fromGame : Maybe Uid -> OtoGame -> Game
+fromGame maybeMe game =
     let
         players = game |> Game.players
 
         (leftPlayer, rightPlayer) =
-            case players |> find (\x -> x.uid == me) of
+            case maybeMe |> Maybe.andThen (\me -> players |> find (\x -> x.uid == me)) of
                 Nothing -> (game.player_1, game.player_2)
-                Just some -> (some, players |> find (\x -> x.uid /= me))
+                Just some -> (some, players |> find (\x -> x.uid /= some.uid))
 
-        rounds = game.words |> Round.fromWords
+        rounds = game.words |> Round.fromWords leftPlayer.uid
         firstRound = rounds |> List.head
         question = rounds |> find (not << Round.isIncomplete)
 
@@ -96,7 +103,7 @@ fromGame me game =
         WrongState game
     else if rounds |> List.filter(Round.isIncomplete) |> List.length |> (\x -> x > 1) then
         WrongState game
-    else if leftPlayer.uid == me then
+    else if maybeMe |> Maybe.map (\me -> leftPlayer.uid == me) |> Maybe.withDefault False then
         RightState (Mine leftPlayer rightPlayer payload_)
     else
         RightState (Others leftPlayer rightPlayer payload_)
@@ -157,6 +164,7 @@ view sGame =
                                 [ span [class "font-bold"] [text (Name.toString some.name)]
                                 , p_.question
                                     |> Maybe.map Round.id
+                                    |> Maybe.map ((+) 1)
                                     |> Maybe.withDefault 0
                                     |> (\x -> "round " ++ (String.fromInt x) )
                                     |> text
@@ -180,11 +188,12 @@ view sGame =
             gameWidget p_.uid (avatar picture) partnerRound words
 
 
+
 gameWidget : Uid -> Html msg -> Html msg -> Html msg -> Html msg
-gameWidget uid picture partnerRound words =
+gameWidget uid_ picture partnerRound words =
     a
         [ class "flex flex-row items-center"
-        , Route.href (uid |> Route.Game)
+        , Route.href (uid_ |> Route.Game)
         ]
         [ picture
         , partnerRound
@@ -194,3 +203,8 @@ gameWidget uid picture partnerRound words =
 avatar : Html msg -> Html msg
 avatar img =
     span [ class "h-12 w-12 m-2" ] [ img ]
+
+
+decoder : Maybe Uid -> Decoder Game
+decoder uid_ =
+    Decode.map (fromGame uid_) Game.decoder

@@ -4,7 +4,8 @@ import Browser exposing (Document)
 import Game.GameStatus as Status
 import Game.OtoGame as OtoGame exposing (OtoGame)
 import Game.Game as Game exposing (Game(..))
-import Game.Round exposing (Round(..))
+import Game.Round as Round exposing (Round(..))
+import Game.Word as Word
 import Helpers exposing (onEnter)
 import Html exposing (Html, button, div, input, p, span, text)
 import Html.Attributes exposing (class, disabled, placeholder, style, value)
@@ -24,24 +25,26 @@ import View.Helper
 
 type alias Model =
     { session : Session
-    , game : WebData OtoGame
+    , game : WebData Game
     , guess : String
+    , guessWebData : WebData Game
     }
 
 type Msg
-    = GameReceived (WebData OtoGame)
+    = GameReceived (WebData Game)
     | OnGuessChange String
     | SubmitGuess
+    | OnGuessResponse (WebData Game)
 
 initModel : Session -> Model
-initModel = Model >> (\x -> x Loading "")
+initModel = Model >> (\x -> x Loading "" NotAsked)
 
 toSession : Model -> Session
 toSession = .session
 
 init : Session -> Uid -> (Model, Cmd Msg)
 init session uid =
-    ({session = session, game = Loading, guess = ""}, get session uid)
+    (initModel session, get session uid)
 
 updateSession : Session -> Model -> Model
 updateSession session model =
@@ -56,8 +59,15 @@ update msg model =
         OnGuessChange str ->
             ( { model | guess = str }, Cmd.none)
         SubmitGuess ->
-            (model, Cmd.none)
-
+            case model.game of
+                Success game ->
+                    ( {model | guessWebData = Loading, guess = "" }, submitGuess model.session model.guess game)
+                _ ->
+                    (model, Cmd.none)
+        OnGuessResponse ((Success s) as webData) ->
+            ( { model | game = webData, guessWebData = NotAsked }, Cmd.none)
+        OnGuessResponse webData ->
+            ( { model | guessWebData = webData }, Cmd.none)
 
 launchCmd : Session -> Maybe Uid -> Cmd Msg
 launchCmd session maybeUid =
@@ -72,7 +82,7 @@ launchCmd session maybeUid =
                 (OtoApi.config bearer)
                 url
                 GameReceived
-                decoder
+                (Game.decoder (session |> Session.user |> Maybe.map(.uid << User.info)))
                 uidEncoder
     in
     session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
@@ -82,13 +92,28 @@ get : Session -> Uid -> Cmd Msg
 get session uid =
     let
         url = OtoApi.routes.game.show uid
-        message bearer = RemoteData.Http.getWithConfig (config bearer) url GameReceived decoder
+        decoder = (Game.decoder (session |> Session.user |> Maybe.map(.uid << User.info)))
+        message bearer = RemoteData.Http.getWithConfig (config bearer) url OnGuessResponse decoder
     in
     session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
-decoder : Decoder OtoGame
-decoder = OtoGame.decoder
+submitGuess : Session -> String -> Game -> Cmd Msg
+submitGuess session guess game =
+    case game of
+        WrongState _ -> Cmd.none
+        RightState state ->
+            let
+                url = OtoApi.routes.word.create
+                decoder = (Game.decoder (session |> Session.user |> Maybe.map(.uid << User.info)))
+                guessValue =
+                    Word.encoder
+                        (state |> Game.payload |> .uid)
+                        (state |> Game.payload |> .question |> Maybe.map Round.id |> Maybe.map ((+) 1) |> Maybe.withDefault 0)
+                        (guess)
+                message bearer = RemoteData.Http.postWithConfig (config bearer) url OnGuessResponse decoder guessValue
+            in
+            session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
 type alias Translator msg =
@@ -117,11 +142,8 @@ gameView translator me model =
     in
     some
 
-successContent : Translator msg -> User -> String -> OtoGame -> List (Html msg)
-successContent translator me value_ game =
-    let
-        sGame = Game.fromGame (User.info me |> .uid) game
-    in
+successContent : Translator msg -> User -> String -> Game -> List (Html msg)
+successContent translator me value_ sGame =
     case sGame of
         WrongState otoGame -> [View.Helper.smallContainer "TODO:" ]
         RightState state ->
@@ -195,7 +217,7 @@ currentGuess translator value_ sGame =
         readyBubble =
             case (Game.payload sGame).guess of
                 Game.RightGuess _ ->
-                    span [ class "thought absolute top-4 px-3 py-1 surface text-sm surface-7 on-surface-text", style "right" "37%"] [ text "ready"]
+                    span [ class "thought absolute px-3 py-1 surface text-sm surface-7 on-surface-text -left-4 top-0"] [ text "ready"]
                 _ -> text ""
 
         question =
@@ -206,7 +228,7 @@ currentGuess translator value_ sGame =
                     case sGame of
                         Game.Mine _ _ p_ ->
                             case p_.guess of
-                                Game.LeftGuess _ -> p [ class "text-center mt-4"] [ text "Now we are waiting for your partner's word" ]
+                                Game.LeftGuess _ -> p [ class "text-center mt-4"] [ text "Now it's partners turn" ]
                                 _ -> p [ class "text-center mt-4"] [ text "Say your first word, any word!" ]
                         Game.Others _ _ _ -> text ""
 
@@ -215,11 +237,16 @@ currentGuess translator value_ sGame =
         [ class "tertiary-container on-tertiary-container-text rounded-lg p-4 filter drop-shadow overflow-hidden"]
         [ div [class "flex z-10 flex-row justify-around"]
             [ span [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ] [ Avatar.img leftUser.avatar "w-20 h-20  filter drop-shadow", span [] [text leftUserName] ]
-            , span [ class "flex items-center w-40 flex-col truncate overflow-ellipses z-1" ] [ rightUserAvatar, span [class "pt-2 text-sm on-surface-variant-text"] [text rightUserName] ]
+            , span
+                [ class "flex items-center w-40 flex-col z-1 relative" ]
+                [ rightUserAvatar, span [class "pt-2 text-sm on-surface-variant-text truncate overflow-ellipses"] [text rightUserName]
+                , readyBubble
+                ]
             ]
         , glow
         , speechBubble
-        , readyBubble
+        -- TODO : Add errors
+        , div [] []
         , question
         ]
 
@@ -249,6 +276,9 @@ bubbleInput translator value_ =
 
 type Size = Small | Big
 
+
+
+-- TODO: ORDER
 roundView : Size -> Round -> Html msg
 roundView size round =
     let
@@ -260,10 +290,16 @@ roundView size round =
     case round of
         Incomplete _ -> text ""
         Complete w1 w2 ->
+            let
+                wordSize w =
+                    if String.length w > 14
+                    then class "text-sm"
+                    else class ""
+            in
             div
                 [ class "flex justify-center items-center mt-4"]
-                [ span [ class "w-full order-first text-right pr-3 uppercase font-bold"] [ text w1.word ]
-                , span [ class "w-full order-last pl-3 uppercase  font-bold"] [ text w2.word ]
+                [ span [ class "w-full order-first text-right pr-3 uppercase font-bold", wordSize w1.word] [ text w1.word ]
+                , span [ class "w-full order-last pl-3 uppercase  font-bold", wordSize w2.word] [ text w2.word ]
                 , span [ class textSize, class "text-center rounded-full py-1 px-3 primary on-primary-text"] [ text <| String.fromInt <| w1.roundId ]
                 ]
 

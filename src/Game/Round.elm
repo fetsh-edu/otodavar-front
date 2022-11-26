@@ -26,13 +26,19 @@ getWord uid round =
         Incomplete w -> if w.player == uid then Just w else Nothing
         Complete w1 w2 -> find (\x -> x.player == uid) [w1, w2]
 
-fromWords : List Word -> List Round
-fromWords =
+fromWords : Uid -> List Word -> List Round
+fromWords uid =
     groupWhile ( \a b -> a.roundId == b.roundId )
-        >> List.map toRound
+        >> List.map (toRound uid)
 
-toRound : (Word, List Word) -> Round
-toRound (word, words) =
+toRound : Uid -> (Word, List Word) -> Round
+toRound uid (word, words) =
     List.head words
-        |> Maybe.map (Complete word)
+        |> Maybe.map (balance uid word)
         |> Maybe.withDefault (Incomplete word)
+
+balance : Uid -> Word -> Word -> Round
+balance uid w1 w2 =
+    if w1.player == uid
+    then Complete w1 w2
+    else Complete w2 w1

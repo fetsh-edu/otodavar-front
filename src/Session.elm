@@ -9,6 +9,7 @@ import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import RemoteData exposing (WebData)
 import Url exposing (Url)
 import User.Bearer exposing (Bearer)
+import User.Uid exposing (Uid)
 import User.User as User exposing (User)
 
 type Session
@@ -88,7 +89,6 @@ logout =
 changes : (Session -> msg) -> Session -> Sub msg
 changes toMsg session =
     onSessionChange (\val -> toMsg (decode session val))
-    --onSessionChange (\val -> toMsg (Decode.decodeValue User.decoderNullable))
 
 decode : Session -> Decode.Value -> Session
 decode session value =
