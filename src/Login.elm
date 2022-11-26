@@ -16,44 +16,38 @@ import Json.Encode as Encode
 import Jwt exposing (decodeToken, errorToString)
 import OAuth exposing (ErrorCode(..), ResponseType(..), Token)
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..), defaultAuthorizationErrorParser, defaultErrorParser, defaultTokenParser)
-import Session exposing (Session, navKey)
+import SharedModel exposing (SharedModel, navKey)
 import Url exposing (Protocol(..), Url)
 import Url.Parser as Url exposing ((<?>))
 import Url.Parser.Query as Query
 import User.Bearer exposing (Bearer(..))
 import User.Config exposing (configuration)
 import User.Name as Name
-import User.User as User exposing (User, decoderUserInfo2)
+import User.User as User exposing (User, decoderSimpleInfo2)
 
 type alias Model =
-    { session : Session
+    { sharedModel : SharedModel
     , flow : Flow
     }
 
-initModel : Session -> Model
-initModel session =
-    { session = session, flow = WithSession session}
+initModel : SharedModel -> Model
+initModel sharedModel =
+    { sharedModel = sharedModel, flow = WithSession sharedModel}
 
-init : Session ->  (Model, Cmd Msg)
-init session =
-    ( initModel session, Cmd.none)
+init : SharedModel ->  (Model, Cmd Msg)
+init sharedModel =
+    ( initModel sharedModel, Cmd.none)
 
-updateSession : Session -> Model -> Model
+updateSession : SharedModel -> Model -> Model
 updateSession session model =
-    { model | session  = session}
-    --( initModel session
-    --, if Session.isGuest session then
-    --    Cmd.none
-    --  else
-    --    Navigation.pushUrl (Session.navKey session) (Route.routeToString Route.Home)
-    --)
+    { model | sharedModel  = session}
 
 type Flow
     = GeneratingSecret
     | SecretGenerated (List Int)
     | WithGoogleToken IdToken
     | WithOtoUser User
-    | WithSession Session
+    | WithSession SharedModel
     | Erred Error
 
 type Error
@@ -87,17 +81,17 @@ view translator model =
                 WithOtoUser _ ->
                     text "Got User" |> container
 
-                WithSession session ->
-                    case session of
-                        Session.LoggedIn _ _ _ u_ ->
+                WithSession sharedModel ->
+                    case sharedModel.auth of
+                        SharedModel.LoggedIn u_ _ ->
                             u_ |> User.info |> .name |> Name.toString |> (++) "You are logged in as " |> text |> container
-                        Session.Guest _ _ Nothing ->
+                        SharedModel.Guest Nothing ->
                             div []
                                 [ div [] [ text "You are a Guest" ]
                                 , signInButton translator
                                 ]
                                 |> container
-                        Session.Guest _ _ (Just er_) ->
+                        SharedModel.Guest (Just er_) ->
                             div []
                                 [ div [] [ text "You are a Guest because there were errors." ]
                                 , signInButton translator
@@ -173,8 +167,8 @@ signInButton { toSelf } =
 
 port genRandomBytes : Int -> Cmd msg
 
-toSession : Model -> Session
-toSession { session } = session
+toSession : Model -> SharedModel
+toSession { sharedModel } = sharedModel
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -191,7 +185,7 @@ update msg model =
         GotOtoUser (Err error) ->
             ({ model | flow = Erred (ErrHTTPGetUserInfo error)}, Cmd.none)
         GotOtoUser (Ok user) ->
-            ( { model | flow = WithOtoUser user}, Session.login user )
+            ( { model | flow = WithOtoUser user}, SharedModel.login user )
 
 
 
@@ -290,7 +284,7 @@ getOtoBearer toCmd token =
         , body = Http.jsonBody (encodeToken token)
         , headers = [(Http.header "Accept" "application/json")]
         , url = Url.toString configuration.userInfoEndpoint
-        , expect = expectJsonWithHeader toCmd decoderUserInfo2 User.build
+        , expect = expectJsonWithHeader toCmd decoderSimpleInfo2 User.build
         , timeout = Nothing
         , tracker = Nothing
         }
@@ -310,8 +304,8 @@ gotRandomBytes : Model -> List Int -> ( Model, Cmd msg )
 gotRandomBytes model bytes =
     let
         { state } = convertBytes bytes
-        stateUrl = model |> toSession |> Session.url |> cleanUrl |> Url.toString
-        redirectUrl = model |> toSession |> Session.url |> rootUrl
+        stateUrl = model |> toSession |> SharedModel.url |> cleanUrl |> Url.toString
+        redirectUrl = model |> toSession |> SharedModel.url |> rootUrl
         authorization =
             { clientId = configuration.clientId
             , redirectUri = redirectUrl

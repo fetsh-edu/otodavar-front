@@ -16,17 +16,7 @@ type User
 
 type alias Internals =
     { bearer : Bearer
-    , info : UserInfo
-    }
-
-type alias UserInfo =
-    { email : Email
-    , uid : Uid
-    , avatar : Avatar
-    , name : Name
-    , friends : List SimpleInfo
-    , incomingFriendRequests : List SimpleInfo
-    , outgoingFriendRequests : List SimpleInfo
+    , info : SimpleInfo
     }
 
 type alias SimpleInfo =
@@ -34,22 +24,15 @@ type alias SimpleInfo =
     , uid : Uid
     , avatar : Avatar
     , name : Name
+    , friendStatus : FriendStatus.Status
     }
-
-userToSimple : UserInfo -> SimpleInfo
-userToSimple user =
-    { email = user.email
-    , uid = user.uid
-    , avatar = user.avatar
-    , name = user.name
-    }
-
 
 type alias FullInfo =
     { email : Email
     , uid : Uid
     , avatar : Avatar
     , name : Name
+    , friendStatus : FriendStatus.Status
     , gamesCount : Int
     , friendsCount : Int
     , friends : Maybe (List SimpleInfo)
@@ -58,29 +41,20 @@ type alias FullInfo =
     }
 
 
-friendStatus : User -> Uid -> FriendStatus.Status
-friendStatus user uid =
-    if (user |> info |> .uid) == uid then
-        FriendStatus.Me
-    else if (user |> info |> .friends |> List.any (\x -> x.uid == uid) ) then
-        FriendStatus.Friend
-    else if (user |> info |> .incomingFriendRequests |> List.any (\x -> x.uid == uid) ) then
-        FriendStatus.Wannabe
-    else if (user |> info |> .outgoingFriendRequests |> List.any (\x -> x.uid == uid) ) then
-        FriendStatus.Requested
-    else
-        FriendStatus.Unknown
-
-build : Bearer -> UserInfo -> User
+build : Bearer -> SimpleInfo -> User
 build a b = User (Internals a b)
 
 bearer : User -> Bearer
 bearer (User intern) =
     intern.bearer
 
-info : User -> UserInfo
+info : User -> SimpleInfo
 info (User intern) =
     intern.info
+
+updateInfo : SimpleInfo -> User -> User
+updateInfo newInfo (User oldUser) =
+    User { oldUser | info = newInfo }
 
 view : User -> Html msg
 view user =
@@ -88,6 +62,7 @@ view user =
             [ img [ attribute "referrerpolicy" "no-referrer", class "w-14 h-14 rounded-lg", src (info user |> .avatar |> Avatar.toString)] []
             , span [ class "pl-4 overflow-ellipsis overflow-hidden"] [text (info user |> .name |> Name.toString)]
             ]
+
 
 -- SERIALIZATION
 
@@ -109,58 +84,54 @@ decoder =
 decoderNullable : Decoder (Maybe User)
 decoderNullable = Decode.nullable decoder
 
-encodeUserInfo : UserInfo -> Value
+encodeUserInfo : SimpleInfo -> Value
 encodeUserInfo uInfo =
     Encode.object
         [ ( "email", Email.encode uInfo.email)
         , ( "uid", Uid.encode uInfo.uid)
         , ( "avatar", Avatar.encode uInfo.avatar )
         , ( "name", Name.encode uInfo.name )
-        , ( "friends", (Encode.list encodeInfo uInfo.friends) )
-        , ( "incoming_friends", (Encode.list encodeInfo uInfo.incomingFriendRequests) )
-        , ( "outgoing_friends", (Encode.list encodeInfo uInfo.outgoingFriendRequests) )
+        , ( "friend_status", FriendStatus.encode uInfo.friendStatus )
         ]
 
 encodeInfo : SimpleInfo -> Value
-encodeInfo { email, avatar, name, uid } =
+encodeInfo { email, avatar, name, uid, friendStatus } =
     Encode.object
         [ ( "email", Email.encode email)
         , ( "uid", Uid.encode uid)
         , ( "avatar", Avatar.encode avatar )
         , ( "name", Name.encode name )
+        , ( "friend_status", FriendStatus.encode friendStatus )
         ]
 
-decoderUserInfo : Decoder UserInfo
+decoderUserInfo : Decoder SimpleInfo
 decoderUserInfo =
-    Decode.map7 UserInfo
+    Decode.map5 SimpleInfo
         (Decode.field "email" Email.decoder)
         (Decode.field "uid" Uid.decoder)
         (Decode.field "avatar" Avatar.decoder)
         (Decode.field "name" Name.decoder)
-        (Decode.field "friends" (Decode.list decoderInfo))
-        (Decode.field "incoming_friends" (Decode.list decoderInfo))
-        (Decode.field "outgoing_friends" (Decode.list decoderInfo))
+        (Decode.field "friend_status" FriendStatus.decoder)
 
 decoderInfo : Decoder SimpleInfo
 decoderInfo =
-    Decode.map4 SimpleInfo
+    Decode.map5 SimpleInfo
         (Decode.field "email" Email.decoder)
         (Decode.field "uid" Uid.decoder)
         (Decode.field "avatar" Avatar.decoder)
         (Decode.field "name" Name.decoder)
+        (Decode.field "friend_status" FriendStatus.decoder)
 
 
 -- TODO: Check
-decoderUserInfo2 : Decoder UserInfo
-decoderUserInfo2 =
-    Decode.map7 UserInfo
+decoderSimpleInfo2 : Decoder SimpleInfo
+decoderSimpleInfo2 =
+    Decode.map5 SimpleInfo
         (at ["data", "email"] Email.decoder)
         (at ["data", "uid"] Uid.decoder)
         (at ["data", "avatar"] Avatar.decoder)
         (at ["data", "name"] Name.decoder)
-        (at ["data", "friends"] (Decode.list decoderInfo))
-        (at ["data", "incoming_friends"] (Decode.list decoderInfo))
-        (at ["data", "outgoing_friends"] (Decode.list decoderInfo))
+        (at ["data", "friend_status"] FriendStatus.decoder)
 
 decoderFullInfo : Decoder FullInfo
 decoderFullInfo =
@@ -169,6 +140,7 @@ decoderFullInfo =
          |> Decode.map2 (|>) (Decode.field "uid" Uid.decoder)
          |> Decode.map2 (|>) (Decode.field "avatar" Avatar.decoder)
          |> Decode.map2 (|>) (Decode.field "name" Name.decoder)
+         |> Decode.map2 (|>) (Decode.field "friend_status" FriendStatus.decoder)
          |> Decode.map2 (|>) (Decode.field "games_count" Decode.int)
          |> Decode.map2 (|>) (Decode.field "friends_count" Decode.int)
          |> Decode.map2 (|>) (Decode.maybe (Decode.field "friends" (Decode.list decoderInfo)))

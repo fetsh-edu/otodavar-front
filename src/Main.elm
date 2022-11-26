@@ -17,7 +17,7 @@ import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import Profile
 import RemoteData exposing (WebData)
 import Route exposing (Route)
-import Session exposing (Session, logout)
+import SharedModel exposing (SharedModel, logout)
 import Url exposing (Protocol(..), Url)
 import User.User exposing (User(..))
 
@@ -38,7 +38,7 @@ subscriptions model =
         defSub =
             Sub.batch
                 [ randomBytes (GotLoginMsg << Login.GotRandomBytes)
-                , Session.changes (SessionEmerged) (toSession model)
+                , SharedModel.changes AuthEmerged (getSharedModel model)
                 , onNotification (GotNotificationsMsg << Notifications.GotNotification << Decode.decodeValue Notifications.decoder)
                 ]
     in
@@ -69,16 +69,16 @@ init flags url navKey =
     let
         tokenResult = Login.parseToken url
         maybeBytes = Maybe.map convertBytes flags.bytes
-        session url_ = Session.decode (Session.guest navKey url_) flags.bearer
+        sharedModel url_ = SharedModel.decode (SharedModel.guest navKey url_) flags.bearer
     in
     case (tokenResult, maybeBytes) of
         (OAuth.Error error, _) ->
-            session url
+            sharedModel url
                 |> Login.initModel
                 |> Login.update (Login.GotInitAuthError (Login.ErrAuthorization error))
                 |> updateWith Login GotLoginMsg
         (OAuth.Success _, Nothing) ->
-            session url
+            sharedModel url
                 |> Login.initModel
                 |> Login.update (Login.GotInitAuthError Login.ErrStateMismatch)
                 |> updateWith Login GotLoginMsg
@@ -91,24 +91,31 @@ init flags url navKey =
                         _ -> (Nothing, url)
             in
             if state_ /= Just bytes.state || idToken.parsed.nonce /= bytes.state then
-                session url
+                sharedModel url
                     |> Login.initModel
                     |> Login.update (Login.GotInitAuthError Login.ErrStateMismatch)
                     |> updateWith Login GotLoginMsg
             else
-                session redirectUrl
+                sharedModel redirectUrl
                     |> Login.initModel
                     |> Login.update (Login.GotGoogleToken idToken)
                     |> updateWith Login GotLoginMsg
         (OAuth.Empty, _) ->
             changeRouteTo
                 (Route.fromUrl url)
-                (Home (Home.initModel (session url)))
-                |> (\(a, b) -> (a, Cmd.batch[b, Notifications.get (GotNotificationsMsg << Notifications.GotNotifications) (Session.bearer (session url))]))
+                (Home (Home.initModel (sharedModel url)))
+                |> ( \(newModel, newCmd) ->
+                        ( newModel
+                        , Cmd.batch
+                            [ newCmd
+                            , Notifications.get (GotNotificationsMsg << Notifications.GotNotifications) (SharedModel.bearer (sharedModel url))
+                            ]
+                        )
+                   )
 
 
-toSession : Model -> Session
-toSession page =
+getSharedModel : Model -> SharedModel
+getSharedModel page =
     case page of
         Home session -> Home.toSession session
         Login model -> Login.toSession model
@@ -120,18 +127,18 @@ changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
 changeRouteTo maybeRoute model =
     let
         session =
-            toSession model
+            getSharedModel model
         protected =
             Maybe.withDefault True <| Maybe.map Route.isProtected maybeRoute
     in
-    if (Session.isGuest session) && protected then
-        ( model, Route.replaceUrl (Session.navKey session) Route.Login )
+    if (SharedModel.isGuest session) && protected then
+        ( model, Route.replaceUrl (SharedModel.navKey session) Route.Login )
     else
         case (Debug.log "maybeRoute" maybeRoute) of
             Nothing ->
-                ( model, Route.replaceUrl (Session.navKey session) Route.Home )
+                ( model, Route.replaceUrl (SharedModel.navKey session) Route.Home )
             Just Route.Logout ->
-                (model, Session.logout)
+                (model, SharedModel.logout)
             Just Route.Login ->
                 updateWith Login GotLoginMsg (Login.init session)
             Just Route.Home ->
@@ -161,7 +168,7 @@ update msg model =
             case urlRequest of
                 Browser.Internal url ->
                     ( model
-                    , Navigation.pushUrl (Session.navKey (toSession model)) (Url.toString url)
+                    , Navigation.pushUrl (SharedModel.navKey (getSharedModel model)) (Url.toString url)
                     )
 
                 Browser.External href ->
@@ -172,14 +179,14 @@ update msg model =
         ( ChangedUrl url, _ ) ->
             changeRouteTo (Route.fromUrl url) model
 
-        ( SessionEmerged session, _ ) ->
+        ( AuthEmerged sharedModel, _ ) ->
             let
-                initUrl = model |> toSession |> Session.url |> Login.cleanUrl |> Url.toString
-                newModel = Login <| Login.initModel session
+                initUrl = model |> getSharedModel |> SharedModel.url |> Login.cleanUrl |> Url.toString
+                newModel = Login <| Login.initModel sharedModel
             in
             (newModel, Cmd.batch
-                [ Navigation.replaceUrl (Session.navKey session) initUrl
-                , Notifications.get (GotNotificationsMsg << Notifications.GotNotifications) (Session.bearer session)
+                [ Navigation.replaceUrl (SharedModel.navKey sharedModel) initUrl
+                , Notifications.get (GotNotificationsMsg << Notifications.GotNotifications) (SharedModel.bearer sharedModel)
                 ]
             )
 
@@ -204,13 +211,19 @@ update msg model =
         (ShowNotifications, _) ->
             toggleNotifications model True
 
+        ( UserInfoReceived userInfo, _ ) ->
+            let
+                newShared = model |> getSharedModel |> SharedModel.updateUserInfo userInfo
+            in
+            (model |> updateSharedModel newShared, Cmd.none)
+
         ( GotHomeMsg subMsg, Home subModel  ) ->
             updateWith Home GotHomeMsg (Home.update subMsg subModel)
         ( GotHomeMsg _, _ ) -> noOp model
 
         ( LaunchGame maybeUid, _) ->
             let
-                session = model |> toSession
+                session = model |> getSharedModel
             in
             (session |> Game.initModel |> Game, Cmd.map GotGameMsg (Game.launchCmd session maybeUid))
         ( GotGameMsg subMsg, Game subModel ) ->
@@ -225,36 +238,36 @@ toggleNotifications model bool =
                 Cmd.none
             else
                 model
-                    |> toSession |> Session.notifications
+                    |> getSharedModel |> SharedModel.notifications
                     |> Maybe.map (.items >> RemoteData.withDefault [] >> List.filter (not << .seen))
                     |> Maybe.andThen (List.head >> Maybe.map .id)
-                    |> Maybe.map (Notifications.markAsSeen (GotNotificationsMsg << Notifications.GotNotifications) (model |> toSession |> Session.bearer))
+                    |> Maybe.map (Notifications.markAsSeen (GotNotificationsMsg << Notifications.GotNotifications) (model |> getSharedModel |> SharedModel.bearer))
                     |> Maybe.withDefault Cmd.none
 
-        newSession = model |> toSession |> Session.updateNotifications (\n -> {n | shown = bool})
+        newSession = model |> getSharedModel |> SharedModel.updateNotifications (\n -> {n | shown = bool})
 
-        newModel = model |> updateSession newSession
+        newModel = model |> updateSharedModel newSession
     in
     (newModel, cmd)
 
 updateNotifications : Model -> (WebData (List Notification)) -> Model
 updateNotifications model data =
-    (model |> toSession |> Session.setNotifications data |> updateSession) model
+    (model |> getSharedModel |> SharedModel.setNotifications data |> updateSharedModel) model
 
 appendNotifications : Model -> (Result Decode.Error Notification) -> Model
 appendNotifications model data =
     case data of
         Ok value ->
-            ( model |> toSession
-            |> Session.updateNotifications (\n -> { n | items = RemoteData.map (\i -> value :: i) n.items })
-            |> updateSession
+            ( model |> getSharedModel
+            |> SharedModel.updateNotifications (\n -> { n | items = RemoteData.map (\i -> value :: i) n.items })
+            |> updateSharedModel
             ) model
         Err error ->
             model
 
 
-updateSession : Session -> Model -> Model
-updateSession session_ model =
+updateSharedModel : SharedModel -> Model -> Model
+updateSharedModel session_ model =
     case model of
         Home subModel ->  subModel |> Home.updateSession session_ |> Home
         Login subModel ->  subModel |> Login.updateSession session_ |> Login
@@ -293,7 +306,7 @@ view model =
                         ]
                         [ header_ model
                         , div [] body
-                        , footer_ (model |> toSession |> Session.user)
+                        , footer_ (model |> getSharedModel |> SharedModel.user)
                         ]
                 ]
             }
@@ -311,8 +324,8 @@ header_ model =
     let
         notificationPillVisibility =
             model
-                |> toSession
-                |> Session.notifications
+                |> getSharedModel
+                |> SharedModel.notifications
                 |> Maybe.map
                     ( .items
                     >> RemoteData.withDefault []
@@ -364,7 +377,7 @@ header_ model =
 -- TODO : Design notifications
 modal : Model -> Html Msg
 modal model =
-    case model |> toSession |> Session.notifications of
+    case model |> getSharedModel |> SharedModel.notifications of
         Nothing -> text ""
         Just notifications ->
             let

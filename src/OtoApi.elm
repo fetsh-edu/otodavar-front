@@ -10,6 +10,7 @@ import User.Uid as Uid exposing (Uid)
 
 routes =
     { profile = (\uid -> url ("/api/v1/users/" ++ (Uid.toString uid)) Nothing )
+    , me = url ("/api/v1/users/me") Nothing
     , home = url ("/api/v1/games") Nothing
     , friend =
         { remove = (\{uid, resource} -> url ("/api/v1/users/" ++ (Uid.toString uid) ++ "/unfriend") (resourceQuery resource))

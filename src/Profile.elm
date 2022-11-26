@@ -8,7 +8,7 @@ import Json.Encode as Encode
 import Login
 import OtoApi exposing (config, url)
 import Route
-import Session exposing (Session)
+import SharedModel exposing (SharedModel)
 import Url
 import User.Avatar as Avatar
 import User.Bearer as Bearer
@@ -21,7 +21,7 @@ import RemoteData.Http
 import View.Helper
 
 type alias Model =
-    { session : Session
+    { session : SharedModel
     , uid : Uid
     , flow : WebData User.FullInfo
     , friendRequest : WebData User.FullInfo
@@ -34,16 +34,16 @@ type Msg
     | RemoveFriendRequested { friend : Uid, resource : Uid}
     | AcceptFriendRequested { friend : Uid, resource : Uid}
 
-init : Session -> Uid -> (Model, Cmd Msg)
+init : SharedModel -> Uid -> (Model, Cmd Msg)
 init session uid =
     ({session = session, uid = uid, flow = Loading, friendRequest = NotAsked}, get session uid)
 
 
-updateSession : Session -> Model -> Model
+updateSession : SharedModel -> Model -> Model
 updateSession session model =
     { model | session  = session}
 
-toSession : Model -> Session
+toSession : Model -> SharedModel
 toSession { session } = session
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -69,40 +69,40 @@ update msg model =
             ( {model | friendRequest = Loading}, friendRequestAccept (toSession model) obj )
 
 
-friendRequest : Session -> { friend : Uid, resource : Uid } -> Cmd Msg
+friendRequest : SharedModel -> { friend : Uid, resource : Uid } -> Cmd Msg
 friendRequest session {friend, resource} =
     let
         url = OtoApi.routes.friend.request { uid = friend, resource = (Just resource) }
         message bearer = RemoteData.Http.postWithConfig (OtoApi.config bearer) url HandleFriendRequest User.decoderFullInfo Encode.null
     in
-    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
 
-friendRequestAccept : Session -> { friend : Uid, resource : Uid } -> Cmd Msg
+friendRequestAccept : SharedModel -> { friend : Uid, resource : Uid } -> Cmd Msg
 friendRequestAccept session {friend, resource}  =
     let
         url = OtoApi.routes.friend.accept { uid = friend, resource = (Just resource) }
         message bearer = RemoteData.Http.postWithConfig (config bearer) url HandleFriendRequest User.decoderFullInfo Encode.null
     in
-    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
-friendRequestRemove : Session -> { friend : Uid, resource : Uid } -> Cmd Msg
+friendRequestRemove : SharedModel -> { friend : Uid, resource : Uid } -> Cmd Msg
 friendRequestRemove session {friend, resource} =
     let
         url = OtoApi.routes.friend.remove { uid = friend, resource = (Just resource) }
         message bearer = RemoteData.Http.postWithConfig (config bearer) url HandleFriendRequest User.decoderFullInfo Encode.null
     in
-    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
-get : Session -> Uid -> Cmd Msg
+get : SharedModel -> Uid -> Cmd Msg
 get session uid =
     let
         url = OtoApi.routes.profile uid
         message bearer = RemoteData.Http.getWithConfig (config bearer) url HandleProfileResponse User.decoderFullInfo
     in
-    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 type alias Translator msg =
     { toSelf : Msg -> msg
@@ -115,7 +115,7 @@ view translator model =
         = model.flow |> RemoteData.map (.name >> Name.toString) |> RemoteData.withDefault "Profile"
 
     , body =
-        case model |> toSession |> Session.user of
+        case model |> toSession |> SharedModel.user of
             Nothing -> [ text "SHOULDN'T BE POSSIBLE" ]
             Just me ->
                 case model.flow of
@@ -129,10 +129,10 @@ view translator model =
 
 
 
-successContent : Translator msg -> Session -> User -> User.FullInfo -> Html msg
+successContent : Translator msg -> SharedModel -> User -> User.FullInfo -> Html msg
 successContent ({ toSelf, onGameStart } as translator) session me pageUser =
     let
-        friendStatus = User.friendStatus me pageUser.uid
+        friendStatus = pageUser.friendStatus
         friendButton =
             if friendStatus == Me then
                 shareButton pageUser session
@@ -230,12 +230,11 @@ pendingApproval me other =
 friendsList : Translator msg -> User -> User.FullInfo -> Html msg
 friendsList ( { toSelf, onGameStart } as translator) me pageUser =
     let
-        friendStatus : Status
-        friendStatus = User.friendStatus me pageUser.uid
+        friendStatus = pageUser.friendStatus
 
         actionButton_ : User.SimpleInfo -> Html msg
         actionButton_ user =
-            case User.friendStatus me user.uid of
+            case user.friendStatus of
                 Me ->
                     text ""
                 Friend ->
@@ -320,7 +319,7 @@ friendView actionButton_ other =
 
 shareButton userInfo session =
     let
-        rootUrl = session |> Session.url |> Login.rootUrl
+        rootUrl = session |> SharedModel.url |> Login.rootUrl
         route = Url.toString {rootUrl | path = (userInfo |> .uid |> Route.Profile |> Route.routeToString)}
     in
     Html.node "clipboard-copy"

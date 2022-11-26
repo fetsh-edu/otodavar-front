@@ -11,34 +11,34 @@ import OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Route
-import Session exposing (Session)
+import SharedModel exposing (SharedModel)
 import User.Avatar as Avatar
 import User.Bearer as Bearer
 import User.Name as Name
 import User.Uid exposing (Uid)
-import User.User as User exposing (SimpleInfo, User, UserInfo)
+import User.User as User exposing (SimpleInfo, User)
 import View.Helper
 
 type alias Model =
-    { session : Session
+    { session : SharedModel
     , home : WebData Games
     }
 
-toSession : Model -> Session
+toSession : Model -> SharedModel
 toSession model =
     model.session
 
-initModel : Session -> Model
+initModel : SharedModel -> Model
 initModel session = {session = session, home = NotAsked}
 
-init : Session -> ( Model, Cmd Msg )
+init : SharedModel -> ( Model, Cmd Msg )
 init session =
     let
         model = initModel session
     in
     ( { model | home = Loading }, get session )
 
-updateSession : Session -> Model -> Model
+updateSession : SharedModel -> Model -> Model
 updateSession session model =
     { model | session  = session }
 
@@ -60,7 +60,7 @@ view : Translator msg -> Model -> Document msg
 view translator { session, home } =
     let
         body =
-            case Session.user session of
+            case SharedModel.user session of
                 -- TODO: Handle
                 Nothing -> [ View.Helper.smallContainer "Shouldn't be possible" ]
                 Just user ->
@@ -76,7 +76,7 @@ view translator { session, home } =
         }
 
 
-successContent : Translator msg -> User -> Session -> Games -> List (Html msg)
+successContent : Translator msg -> User -> SharedModel -> Games -> List (Html msg)
 successContent { onRandomLaunch, toSelf } me session games =
     [ View.Helper.container
         [ myTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) |> List.filter SGame.isMyTurn)
@@ -153,10 +153,10 @@ gamesSection title classes games =
     else View.Helper.section title (classes ++ " uppercase text-center") (List.map (SGame.view) games)
 
 
-get : Session -> Cmd Msg
+get : SharedModel -> Cmd Msg
 get session =
     let
         url = OtoApi.routes.home
         message bearer = RemoteData.Http.getWithConfig (config bearer) url HomeReceived Games.decoder
     in
-    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none

@@ -15,7 +15,7 @@ import Json.Encode as Encode
 import OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
-import Session exposing (Session)
+import SharedModel exposing (SharedModel)
 import User.Avatar as Avatar
 import User.Bearer as Bearer
 import User.Name as Name
@@ -24,7 +24,7 @@ import User.User as User exposing (User)
 import View.Helper
 
 type alias Model =
-    { session : Session
+    { session : SharedModel
     , game : WebData Game
     , guess : String
     , guessWebData : WebData Game
@@ -36,17 +36,17 @@ type Msg
     | SubmitGuess
     | OnGuessResponse (WebData Game)
 
-initModel : Session -> Model
+initModel : SharedModel -> Model
 initModel = Model >> (\x -> x Loading "" NotAsked)
 
-toSession : Model -> Session
+toSession : Model -> SharedModel
 toSession = .session
 
-init : Session -> Uid -> (Model, Cmd Msg)
+init : SharedModel -> Uid -> (Model, Cmd Msg)
 init session uid =
     (initModel session, get session uid)
 
-updateSession : Session -> Model -> Model
+updateSession : SharedModel -> Model -> Model
 updateSession session model =
     { model | session  = session}
 
@@ -69,7 +69,7 @@ update msg model =
         OnGuessResponse webData ->
             ( { model | guessWebData = webData }, Cmd.none)
 
-launchCmd : Session -> Maybe Uid -> Cmd Msg
+launchCmd : SharedModel -> Maybe Uid -> Cmd Msg
 launchCmd session maybeUid =
     let
         uidEncoder =
@@ -82,30 +82,30 @@ launchCmd session maybeUid =
                 (OtoApi.config bearer)
                 url
                 GameReceived
-                (Game.decoder (session |> Session.user |> Maybe.map(.uid << User.info)))
+                (Game.decoder (session |> SharedModel.user |> Maybe.map(.uid << User.info)))
                 uidEncoder
     in
-    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
-get : Session -> Uid -> Cmd Msg
+get : SharedModel -> Uid -> Cmd Msg
 get session uid =
     let
         url = OtoApi.routes.game.show uid
-        decoder = (Game.decoder (session |> Session.user |> Maybe.map(.uid << User.info)))
-        message bearer = RemoteData.Http.getWithConfig (config bearer) url OnGuessResponse decoder
+        decoder = (Game.decoder (session |> SharedModel.user |> Maybe.map(.uid << User.info)))
+        message bearer = RemoteData.Http.getWithConfig (config bearer) url GameReceived decoder
     in
-    session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
-submitGuess : Session -> String -> Game -> Cmd Msg
+submitGuess : SharedModel -> String -> Game -> Cmd Msg
 submitGuess session guess game =
     case game of
         WrongState _ -> Cmd.none
         RightState state ->
             let
                 url = OtoApi.routes.word.create
-                decoder = (Game.decoder (session |> Session.user |> Maybe.map(.uid << User.info)))
+                decoder = (Game.decoder (session |> SharedModel.user |> Maybe.map(.uid << User.info)))
                 guessValue =
                     Word.encoder
                         (state |> Game.payload |> .uid)
@@ -113,7 +113,7 @@ submitGuess session guess game =
                         (guess)
                 message bearer = RemoteData.Http.postWithConfig (config bearer) url OnGuessResponse decoder guessValue
             in
-            session |> Session.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+            session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
 type alias Translator msg =
@@ -124,7 +124,7 @@ view : Translator msg -> Model -> Document msg
 view translator model =
     { title = "Game"
     , body =
-        case model |> toSession |> Session.user of
+        case model |> toSession |> SharedModel.user of
             Nothing -> [ text "SHOULDN'T BE POSSIBLE" ]
             Just me -> gameView translator me model
     }
