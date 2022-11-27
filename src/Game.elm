@@ -65,8 +65,8 @@ update msg model =
         OnGuessChange str ->
             ( { model | guess = str }, Cmd.none)
         SubmitGuess ->
-            case model.game of
-                Success game ->
+            case (model.game, model.guess |> String.trim |> String.isEmpty) of
+                (Success game, False) ->
                     ( {model | guessWebData = Loading, guess = "" }, submitGuess model.session model.guess game)
                 _ ->
                     (model, Cmd.none)
