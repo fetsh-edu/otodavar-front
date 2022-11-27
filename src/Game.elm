@@ -1,13 +1,13 @@
-module Game exposing (..)
+port module Game exposing (..)
 
 import Browser exposing (Document)
 import Game.GameStatus as Status
 import Game.OtoGame as OtoGame exposing (OtoGame)
 import Game.Game as Game exposing (Game(..))
 import Game.Round as Round exposing (Round(..))
-import Game.Word as Word
+import Game.Word as Word exposing (Word)
 import Helpers exposing (onEnter)
-import Html exposing (Html, button, div, input, p, span, text)
+import Html exposing (Html, a, button, div, input, p, span, text)
 import Html.Attributes exposing (class, disabled, placeholder, style, value)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode exposing (Decoder)
@@ -15,6 +15,7 @@ import Json.Encode as Encode
 import OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
+import Route
 import SharedModel exposing (SharedModel)
 import User.Avatar as Avatar
 import User.Bearer as Bearer
@@ -35,6 +36,7 @@ type Msg
     | OnGuessChange String
     | SubmitGuess
     | OnGuessResponse (WebData Game)
+    | GotWordFromSocket (Result Decode.Error Word)
 
 initModel : SharedModel -> Model
 initModel = Model >> (\x -> x Loading "" NotAsked)
@@ -55,7 +57,11 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GameReceived webData ->
-            ( { model | game = webData }, Cmd.none)
+            ( { model | game = webData }
+            , webData
+                |> RemoteData.map (Game.uid >> joinChannelSocket)
+                |> RemoteData.withDefault Cmd.none
+            )
         OnGuessChange str ->
             ( { model | guess = str }, Cmd.none)
         SubmitGuess ->
@@ -68,6 +74,15 @@ update msg model =
             ( { model | game = webData, guessWebData = NotAsked }, Cmd.none)
         OnGuessResponse webData ->
             ( { model | guessWebData = webData }, Cmd.none)
+        GotWordFromSocket (Ok word) ->
+            if model |> toSession |> SharedModel.user |> Maybe.map User.info |> Maybe.map (\x -> x.uid /= word.player) |> Maybe.withDefault False
+            then ( model, model.game |> RemoteData.map (Game.uid >> get (model.session)) |> RemoteData.withDefault Cmd.none )
+            else ( model, Cmd.none )
+        GotWordFromSocket (Err e) ->
+            let
+                a = Debug.log "Error word from socket" e
+            in
+            (model, Cmd.none)
 
 launchCmd : SharedModel -> Maybe Uid -> Cmd Msg
 launchCmd session maybeUid =
@@ -172,7 +187,7 @@ currentGuess translator value_ sGame =
 
         rightUserAvatar =
             case rightUser of
-                Just user -> Avatar.img user.avatar "w-20 h-20  filter drop-shadow"
+                Just user -> a [ Route.href (user.uid |> Route.Profile)] [Avatar.img user.avatar "w-20 h-20  filter drop-shadow"]
                 Nothing -> span [ class "surface w-20 h-20 filter drop-shadow rounded-lg flex items-center justify-center"] [span [ class "material-symbols-outlined md-72" ][ text "psychology_alt" ]]
 
         rightUserName =
@@ -207,7 +222,11 @@ currentGuess translator value_ sGame =
         bubbleContent p =
             case p.status of
                 Status.Closed ->
-                    [text "TODO: "]
+                    case p.question of
+                        Nothing -> [text ""]
+                        Just (Incomplete w) -> [text ""]
+                        Just (Complete w _) ->
+                            [ div [ class "flex w-full justify-center items-center font-medium text-lg truncate overflow-ellipses"] [span [class "uppercase"] [text w.word]]]
                 Status.Open ->
                     case p.guess of
                         Game.LeftGuess w ->
@@ -221,16 +240,19 @@ currentGuess translator value_ sGame =
                 _ -> text ""
 
         question =
-            case Game.payload sGame |> .question of
-                Just a ->
-                    roundView Big a
-                Nothing ->
-                    case sGame of
-                        Game.Mine _ _ p_ ->
-                            case p_.guess of
-                                Game.LeftGuess _ -> p [ class "text-center mt-4"] [ text "Now it's partners turn" ]
-                                _ -> p [ class "text-center mt-4"] [ text "Say your first word, any word!" ]
-                        Game.Others _ _ _ -> text ""
+            if (Game.payload sGame).status == Status.Closed
+            then text ""
+            else
+                case Game.payload sGame |> .question of
+                    Just a ->
+                        roundView Big a
+                    Nothing ->
+                        case sGame of
+                            Game.Mine _ _ p_ ->
+                                case p_.guess of
+                                    Game.LeftGuess _ -> p [ class "text-center mt-4"] [ text "Now it's partners turn" ]
+                                    _ -> p [ class "text-center mt-4"] [ text "Say your first word, any word!" ]
+                            Game.Others _ _ _ -> text ""
 
     in
     div
@@ -239,7 +261,10 @@ currentGuess translator value_ sGame =
             [ span [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ] [ Avatar.img leftUser.avatar "w-20 h-20  filter drop-shadow", span [] [text leftUserName] ]
             , span
                 [ class "flex items-center w-40 flex-col z-1 relative" ]
-                [ rightUserAvatar, span [class "pt-2 text-sm on-surface-variant-text truncate overflow-ellipses"] [text rightUserName]
+                [ rightUserAvatar
+                , if (Game.payload sGame).status == Status.Closed
+                    then text (String.fromChar '\u{00A0}')
+                    else span [class "pt-2 text-sm on-surface-variant-text truncate overflow-ellipses"] [text rightUserName]
                 , readyBubble
                 ]
             ]
@@ -307,3 +332,16 @@ roundView size round =
 oldGuesses : Game.State -> Html msg
 oldGuesses state =
         state |> Game.payload |> .previousRounds |> List.map (roundView Small) |> div [ class "px-4 pb-4"]
+
+
+joinChannelSocket : Uid -> Cmd msg
+joinChannelSocket gameUid =
+    subscribeToGame (Uid.encode gameUid)
+
+port subscribeToGame : Decode.Value -> Cmd msg
+
+onGameMessageDecoded : (Result Decode.Error Word -> msg) ->Sub msg
+onGameMessageDecoded toMsg =
+    onGameMessage (Decode.decodeValue Word.decoder >> toMsg)
+
+port onGameMessage : (Encode.Value -> msg) -> Sub msg

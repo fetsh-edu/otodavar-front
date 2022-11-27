@@ -23,7 +23,7 @@ container = div [class "profile-page container mx-auto px-4 mt-6 md:mt-28 md:max
 section : String -> String -> List (Html msg) -> Html msg
 section title_ class_ list =
      div
-         [ class "relative flex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
+         [ class "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
          [ div
             [ class "rounded-t-lg py-2 px-4 font-bold"
             , class class_

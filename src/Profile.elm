@@ -156,9 +156,9 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser =
     in
     div [class "profile-page container mx-auto px-4 mt-6 md:mt-28 md:max-w-5xl"]
             [ div [ class "relative flex flex-col min-w-0 break-words bg-white w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
-                [ div [ class "px-4 md:px-6 py-4 md:py-0"]
+                [ div [ class "md:px-6 py-4 md:py-0"]
                     [ div [ class "flex flex-row md:flex-col justify-between" ]
-                        [ div [ class "w-28 md:w-full px-0 md:px-4 flex justify-left md:justify-center"]
+                        [ div [ class "w-28 md:w-full ml-4 px-0 md:px-4 flex justify-left md:justify-center"]
                             [ img
                                 [ attribute "referrerpolicy" "no-referrer"
                                 , src (Avatar.toString pageUser.avatar)
@@ -169,8 +169,8 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser =
                             ]
                         , div [ class "w-full flex flex-col sm:flex-row"]
                             [ div [ class "flex flex-row justify-center md:justify-end text-right self-center"
-                                  , class "w-full md:w-5/12 order-3 px-3 mt-0"
-                                  , class "py-0 md:py-6"
+                                  , class "w-full md:w-5/12 order-3 mt-0"
+                                  , class "py-0 md:py-6 sm:pr-4"
                                   ]
                                 [ friendButton
                                 , playButton

@@ -1,6 +1,6 @@
 port module Notifications exposing (..)
 
-import Html exposing (Html, a, p, text)
+import Html exposing (Html, a, p, span, text)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
 import Iso8601
@@ -127,11 +127,22 @@ view { onExit } notification =
                 "font-semibold"
         text_ =
             case notification.payload of
-                FriendRequest uid name -> "FriendRequest: " ++ (User.Name.toString name)
-                FriendAccept uid name -> "FriendAccept: " ++ (User.Name.toString name)
-                Unknown string -> string
-                GameCreated uid name -> "Game created: from " ++ (User.Name.toString name)
-                GameAccepted uid name -> "Random accepted: by " ++ (User.Name.toString name)
+                FriendRequest uid name ->
+                    [ span [ class "font-bold" ] [ text (User.Name.toString name)], text " wants to be your friend"]
+                FriendAccept uid name ->
+                    [ span [ class "font-bold" ] [ text (User.Name.toString name)], text " accepted your friend request"]
+                Unknown string -> [text string]
+                GameCreated uid name ->
+                    [ span [ class "font-bold" ] [ text (User.Name.toString name)], text " started a game with you"]
+                GameAccepted uid name ->
+                    [ span [ class "font-bold" ] [ text (User.Name.toString name)], text " accepted your random game"]
+        icon_ =
+            case notification.payload of
+                FriendRequest uid name -> "person_add"
+                FriendAccept uid name -> "person"
+                GameCreated uid name -> "sports_esports"
+                GameAccepted uid name -> "sports_esports"
+                Unknown string -> ""
 
         href_ =
             case notification.payload of
@@ -149,12 +160,10 @@ view { onExit } notification =
 
                 Unknown string ->
                     class ""
-
-
-
-
     in
-    p [ class "text-sm text-gray-500 p-2", class bold] [ a [ href_, onClick onExit ] [text text_] ]
+    a
+        [ href_, onClick onExit, class "flex flex-row items-center text-sm on-surface-variant-text p-2", class bold ]
+        [ span [ class "material-symbols-outlined md-24 mr-2"] [text icon_ ], span [ class "align-baseline "] text_ ]
 
 
 port onNotification : (Encode.Value -> msg) -> Sub msg

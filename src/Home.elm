@@ -61,8 +61,7 @@ view translator { session, home } =
     let
         body =
             case SharedModel.user session of
-                -- TODO: Handle
-                Nothing -> [ View.Helper.smallContainer "Shouldn't be possible" ]
+                Nothing -> [ View.Helper.smallContainer "Please refresh this page. And if you can, tell about this error to developer." ]
                 Just user ->
                     case home of
                         NotAsked -> [ View.Helper.smallContainer "Not asked" ]
@@ -82,12 +81,17 @@ successContent { onRandomLaunch, toSelf } me session games =
         [ myTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) |> List.filter SGame.isMyTurn)
         , playButtonsSection me games.randomGame onRandomLaunch
         , partnersTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) |> List.filter SGame.isPartnersTurn)
+        , oldGamesSection (games.closedGames |> List.map (Debug.log "Game" >> SGame.fromGame (me |> User.info |> .uid |> Just)))
         ]
     ]
 
 myTurnSection : List SGame.Game -> Html msg
 myTurnSection games =
     gamesSection "Your turn!" "tertiary-container on-tertiary-container-text" games
+
+oldGamesSection : List SGame.Game -> Html msg
+oldGamesSection games =
+    gamesSection "Finished Games" "tertiary-container on-tertiary-container-text" games
 
 
 playButtonsSection : User -> Maybe Game.OtoGame -> (Maybe Uid -> msg) -> Html msg

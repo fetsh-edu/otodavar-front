@@ -22,6 +22,7 @@
  --md-sys-color-surface-1: rgb(var(--md-sys-color-primary-rgb) / 0.05);
  --md-sys-color-surface-7: rgb(var(--md-sys-color-surface-light-rgb) / 0.8);
  --md-sys-color-on-surface: var(--md-sys-color-on-surface-light);
+ --md-sys-color-on-surface-200: rgb(var(--md-sys-color-on-surface-light-rgb) / 0.1);
  --md-sys-color-surface-variant: var(--md-sys-color-surface-variant-light);
  --md-sys-color-on-surface-variant: var(--md-sys-color-on-surface-variant-light);
  --md-sys-color-outline: var(--md-sys-color-outline-light);

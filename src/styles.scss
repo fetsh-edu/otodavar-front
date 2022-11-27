@@ -2,12 +2,27 @@ html, body { height: 100%; }
 body {
   margin: 0;
   padding: 0;
+  background-color: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface);
 }
 .container {
     //max-width: 800px;
     margin-left: auto;
     margin-right: auto;
 }
+
+.notifications-container {
+  border-color: var(--md-sys-color-surface);
+}
+
+.divide-light > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--md-sys-color-on-surface-200);
+}
+
+.border-light-200 {
+  border-color: var(--md-sys-color-surface-variant);
+}
+
 header {
     display: flex;
     align-items: center;

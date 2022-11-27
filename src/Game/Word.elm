@@ -8,14 +8,16 @@ type alias Word =
     { word: String
     , player: Uid
     , roundId : Int
+    , id : Int
     }
 
 decoder : Decoder Word
 decoder =
-    Decode.map3 Word
+    Decode.map4 Word
         (Decode.field "word" Decode.string)
         (Decode.field "player" Uid.decoder)
         (Decode.field "round_id" Decode.int)
+        (Decode.field "id" Decode.int)
 
 encoder : Uid -> Int -> String -> Value
 encoder uid roundId guess =

@@ -40,6 +40,7 @@ subscriptions model =
                 [ randomBytes (GotLoginMsg << Login.GotRandomBytes)
                 , SharedModel.changes AuthEmerged (getSharedModel model)
                 , onNotification (GotNotificationsMsg << Notifications.GotNotification << Decode.decodeValue Notifications.decoder)
+                , Game.onGameMessageDecoded (GotGameMsg << Game.GotWordFromSocket)
                 ]
     in
     defSub
@@ -401,16 +402,16 @@ modal model =
                 , onClick HideNotifications
                 ]
                 [ div
-                    [ class "mx-auto border w-full md:max-w-md shadow-lg rounded-md bg-white h-full flex flex-col"
+                    [ class "notifications-container mx-auto border w-full md:max-w-md shadow-lg rounded-md surface on-surface-text h-full flex flex-col"
                     , onClickStopPropagation NoOp
                     ]
                     [ h3
-                        [ class "border-b border-gray-200 text-center pt-3 pb-3 flex-none text-lg leading-6 font-medium text-gray-900 relative"]
+                        [ class "border-b border-light-200 text-center pt-3 pb-3 flex-none text-lg leading-6 font-medium relative uppercase font-bold"]
                         [ text "Notifications"
                         , span [ onClick HideNotifications, class "material-symbols-outlined md-24 absolute right-0 pr-4 cursor-pointer" ] [ text "close" ]
                         ]
                     , div
-                        [ class "overflow-y-auto flex-growpy-3 divide-y divide-gray-100" ]
+                        [ class "overflow-y-auto flex-grow divide-y divide-light" ]
                         notifications_
                     ]
                 ]
