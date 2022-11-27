@@ -139,7 +139,7 @@ isPartnersTurn game =
 view : Game -> Html msg
 view sGame =
     case sGame of
-        WrongState _ -> text "TODO: WrongState"
+        WrongState _ -> text "Game is in some wrong state. It shouldn't be possible. If you can, send this url to developer."
         RightState (Others _ _ _) -> text "TODO: Others Game"
         RightState (Mine me partner p_) ->
             let
@@ -178,7 +178,7 @@ view sGame =
                 words =
                     case p_.question of
                         Just (Round.Complete a b) ->
-                            span [ class "divide-y divide-pink-200 mr-2 flex flex-col text-right font-bold on-surface-variant-text uppercase text-sm overflow-hidden whitespace-nowrap"]
+                            span [ class "divide-y divide-light mr-2 flex flex-col text-right font-bold on-surface-variant-text uppercase text-sm overflow-hidden whitespace-nowrap"]
                                 [ span [class "py-1"] [ text (a.word)]
                                 , span [class "py-1"] [ text (b.word)]
                                 ]

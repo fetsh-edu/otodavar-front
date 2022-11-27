@@ -29,5 +29,5 @@ section title_ class_ list =
             , class class_
             ]
             [ text title_ ]
-         , div [ class "divide-y divide-pink-200"] list
+         , div [ class "divide-y divide-light"] list
          ]

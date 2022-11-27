@@ -116,7 +116,6 @@ encode { id } =
         ]
 
 
--- TODO: Major notifications todo :)
 view : { onExit : msg } -> Notification -> Html msg
 view { onExit } notification =
     let

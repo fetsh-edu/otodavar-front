@@ -160,7 +160,7 @@ gameView translator me model =
 successContent : Translator msg -> User -> String -> Game -> List (Html msg)
 successContent translator me value_ sGame =
     case sGame of
-        WrongState otoGame -> [View.Helper.smallContainer "TODO:" ]
+        WrongState otoGame -> [View.Helper.smallContainer "Game is in some wrong state. It shouldn't be possible. If you can, send this url to developer." ]
         RightState state ->
             [ View.Helper.container
                 [ div
@@ -303,7 +303,6 @@ type Size = Small | Big
 
 
 
--- TODO: ORDER
 roundView : Size -> Round -> Html msg
 roundView size round =
     let

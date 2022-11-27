@@ -375,7 +375,6 @@ header_ model =
         , modal model
         ]
 
--- TODO : Design notifications
 modal : Model -> Html Msg
 modal model =
     case model |> getSharedModel |> SharedModel.notifications of

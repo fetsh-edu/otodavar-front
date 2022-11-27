@@ -122,8 +122,6 @@ decoderInfo =
         (Decode.field "name" Name.decoder)
         (Decode.field "friend_status" FriendStatus.decoder)
 
-
--- TODO: Check
 decoderSimpleInfo2 : Decoder SimpleInfo
 decoderSimpleInfo2 =
     Decode.map5 SimpleInfo
