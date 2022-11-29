@@ -8,7 +8,7 @@ import Game.Round as Round exposing (Round(..))
 import Game.Word as Word exposing (Word)
 import Helpers exposing (onEnter)
 import Html exposing (Html, a, button, div, input, p, span, text)
-import Html.Attributes exposing (class, disabled, placeholder, style, value)
+import Html.Attributes exposing (class, disabled, id, placeholder, style, value)
 import Html.Events exposing (onClick, onInput)
 import Http exposing (Error(..))
 import Json.Decode as Decode exposing (Decoder)
@@ -243,14 +243,54 @@ currentGuess translator value_ sGame =
                 then div [class "absolute win-glow h-96 w-full -top-10 left-0", style "z-index" "-1"][]
                 else text ""
 
+        winBubble =
+            div
+                [ class "flex justify-center items-center absolute w-full top-8"]
+                [ span
+                    [ class "surface-2 on-surface-text rounded-full py-3 px-4 text-2xl tracking-tight font-bold"]
+                    [ span [ class "material-symbols-outlined font-bold text-3xl" ] [ text "done_all"]]
+                    ]
+        winBubble_ =
+            if (Game.payload sGame |> .status) == Status.Closed
+            then
+                div [ class "flex justify-center items-center"]
+                    [ div [ class "warp h-32 top-0 text-md" ]
+                        [ span
+                            [ id "warp-label", class "warp__placeholder" ]
+                            [ text "sababa" ]
+                        , span
+                            [ class "presentation" ]
+                            [ span [ class "warp__0 px-2 rounded-lg surface" ] [text "s"]
+                            , span [ class "warp__1 px-2 rounded-lg surface" ] [text "a"]
+                            , span [ class "warp__2 px-2 rounded-lg surface" ] [text "b"]
+                            , span [ class "warp__3 px-2 rounded-lg surface" ] [text "a"]
+                            , span [ class "warp__4 px-2 rounded-lg surface" ] [text "b"]
+                            , span [ class "warp__5 px-2 rounded-lg surface" ] [text "a"]
+                            , span [ class "warp__6 px-2 rounded-lg surface" ] [text "!"]
+                            ]
+                        ]
+                    ]
+            --then div
+            --    [ class "surface top-20 rounded-lg absolute px-4 py-2 w-full left-0 simple-arc", style "z-index" "-1" ]
+            --    [ span [] [text "s"]
+            --    , span [] [text "a"]
+            --    , span [] [text "b"]
+            --    , span [] [text "a"]
+            --    , span [] [text "b"]
+            --    , span [] [text "a"]
+            --    ]
+            else text ""
+
         speechBubble =
             case sGame of
                 Game.Others _ _ _ -> text ""
                 Game.Mine _ _ p ->
-                    div
-                        [ class "flex z-10 mt-2 surface-7 on-surface-text text-sm p-2 pl-3 w-full h-12 rounded-lg filter drop-shadow speech"
-                        , speechClass
-                        ] (bubbleContent p)
+                    div [ class "px-3"]
+                        [ div
+                                [ class "flex z-10 mt-2 surface-7 on-surface-text text-sm p-2 pl-3 w-full h-12 rounded-lg filter drop-shadow speech"
+                                , speechClass
+                                ] (bubbleContent p)
+                        ]
 
         speechClass =
             if (Game.payload sGame |> .status) == Status.Closed
@@ -295,7 +335,7 @@ currentGuess translator value_ sGame =
 
     in
     div
-        [ class "tertiary-container on-tertiary-container-text rounded-lg p-4 filter drop-shadow overflow-hidden"]
+        [ class "tertiary-container on-tertiary-container-text rounded-lg py-4 filter drop-shadow overflow-hidden"]
         [ div [class "flex z-10 flex-row justify-around"]
             [ span [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ] [ Avatar.img leftUser.avatar "w-20 h-20  filter drop-shadow", span [] [text leftUserName] ]
             , span
@@ -307,6 +347,7 @@ currentGuess translator value_ sGame =
                 , readyBubble
                 ]
             ]
+        , winBubble
         , glow
         , speechBubble
         -- TODO : Add errors

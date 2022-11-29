@@ -30,13 +30,18 @@ smallContainer class_ content_ =
         ]
 
 notFound : Html msg
-notFound =
+notFound = errorView [ text "404"] [ text "Sliha, not found" ]
+
+
+errorView : List (Html msg) -> List (Html msg) -> Html msg
+errorView header_ description_ =
     simpleSmallContainer
         [ div [ class "flex flex-col items-center py-4"]
-            [ div [ class "font-black text-9xl mb-4 on-surface-variant-text"] [text "404"]
-            , div [ class " on-surface-variant-text" ] [text "Sliha, not found"]
+            [ div [ class "font-black text-9xl mb-4 on-surface-variant-text"] header_
+            , div [ class " on-surface-variant-text" ] description_
             ]
         ]
+
 
 
 container : List (Html msg) -> Html msg
