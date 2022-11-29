@@ -68,13 +68,13 @@ update msg model =
         SubmitGuess ->
             case (model.game, model.guess |> String.trim |> String.isEmpty) of
                 (Success game, False) ->
-                    ( {model | guessWebData = Loading, guess = "" }, submitGuess model.session model.guess game)
+                    ( {model | guessWebData = Loading }, submitGuess model.session model.guess game)
                 _ ->
                     (model, Cmd.none)
         OnGuessResponse ((Success s) as webData) ->
-            ( { model | game = webData, guessWebData = NotAsked }, Cmd.none)
+            ( { model | game = webData, guessWebData = NotAsked, guess = "" }, Cmd.none)
         OnGuessResponse webData ->
-            ( { model | guessWebData = webData }, Cmd.none)
+            ( { model | guessWebData = webData}, Cmd.none)
         GotWordFromSocket (Ok word) ->
             if model |> toSession |> SharedModel.user |> Maybe.map User.info |> Maybe.map (\x -> x.uid /= word.player) |> Maybe.withDefault False
             then ( model, model.game |> RemoteData.map (Game.uid >> get (model.session)) |> RemoteData.withDefault Cmd.none )
@@ -150,7 +150,7 @@ gameView translator me model =
                 -- TODO: Handle this
                 NotAsked -> [ View.Helper.loadingContainer "not asked" ]
                 Loading -> [ loadingContent ]
-                Success a -> successContent translator me model.guess a
+                Success a -> successContent translator me model.guess model.guessWebData a
                 Failure e ->
                     case e of
                         BadStatus 404 -> [ View.Helper.notFound ]
@@ -196,23 +196,23 @@ loadingContent =
             ]
         ]
 
-successContent : Translator msg -> User -> String -> Game -> List (Html msg)
-successContent translator me value_ sGame =
+successContent : Translator msg -> User -> String -> WebData Game -> Game -> List (Html msg)
+successContent translator me guessText guessData sGame =
     case sGame of
         WrongState otoGame -> [View.Helper.loadingContainer "Game is in some wrong state. It shouldn't be possible. If you can, send this url to developer." ]
         RightState state ->
             [ View.Helper.container
                 [ div
                     [ class "secondary-container on-secondary-container-text rounded-lg relative" ]
-                    [ currentGuess translator value_ state
+                    [ currentGuess translator guessText state guessData
                     , oldGuesses state
                     ]
                 ]
             ]
 
 
-currentGuess : Translator msg -> String -> Game.State -> Html msg
-currentGuess translator value_ sGame =
+currentGuess : Translator msg -> String -> Game.State -> WebData Game -> Html msg
+currentGuess translator guessText sGame guessData =
     let
         leftUser =
             case sGame of
@@ -279,7 +279,14 @@ currentGuess translator value_ sGame =
             case sGame of
                 Game.Others _ _ _ -> text ""
                 Game.Mine _ _ p ->
-                    div [ class "px-3"]
+                    let
+                        guessLoadingClass =
+                            case guessData of
+                                Loading -> class "animate-pulse"
+                                Failure e -> class ""
+                                _ -> class ""
+                    in
+                    div [ class "px-3", guessLoadingClass]
                         [ div
                                 [ class "flex z-10 mt-2 surface-7 on-surface-text text-sm p-2 pl-3 w-full h-12 rounded-lg filter drop-shadow speech"
                                 , speechClass
@@ -301,11 +308,13 @@ currentGuess translator value_ sGame =
                         Just (Complete w _) ->
                             [ div [ class "flex w-full justify-center items-center font-medium text-lg truncate overflow-ellipses"] [span [class "uppercase"] [text w.word]]]
                 Status.Open ->
-                    case p.guess of
-                        Game.LeftGuess w ->
+                    case (p.guess, guessData) of
+                        (Game.LeftGuess w, _) ->
                             [ div [ class "flex w-full justify-center items-center font-medium text-lg truncate overflow-ellipses"] [span [class "uppercase"] [text w.word]]]
+                        (_, Loading) ->
+                            [ div [ class "flex w-full justify-center items-center font-medium text-lg truncate overflow-ellipses"] [span [class "uppercase"] [text guessText]]]
                         _ ->
-                            bubbleInput translator value_
+                            bubbleInput translator guessText
         readyBubble =
             case (Game.payload sGame).guess of
                 Game.RightGuess _ ->
