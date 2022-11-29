@@ -161,7 +161,7 @@ view sGame =
                                 [ class "ml-2 flex-1 py-3 flex flex-col whitespace-nowrap"]
                                 [ span [class "font-bold"] [text (Name.toString some.name)]
                                 , p_
-                                    |> Debug.log "payload"
+                                    --|> Debug.log "payload"
                                     |> .question
                                     |> Maybe.map Round.id
                                     |> Maybe.withDefault 0

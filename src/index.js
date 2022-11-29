@@ -11,9 +11,23 @@ const {Elm} = require('./Main');
 const bytesKey = "bytes"
 const bearerKey = "bearer"
 
+
+// TODO. Check how it should be done in JS
+let apiUrl = "https://otodavar-api.fetsh.me";
+if (typeof process !== 'undefined') {
+    if (typeof process.env !== 'undefined') {
+        if (typeof process.env.API_URL !== 'undefined') {
+            apiUrl = process.env.API_URL;
+        }
+    }
+}
+console.log(apiUrl)
+
+
 const flags = {
     bytes: rememberedBytes(),
-    bearer: JSON.parse(localStorage.getItem(bearerKey))
+    bearer: JSON.parse(localStorage.getItem(bearerKey)),
+    apiUrl: apiUrl
 }
 
 var app = Elm.Main.init({flags: flags});
@@ -38,7 +52,11 @@ const initConsumer = () => {
             }
         }
     } else {
-        Sockets.consumer = createConsumer("wss://localhost:3001/cable", bearer.bearer.split(" ")[1]);
+        var host = apiUrl.replace(/^https:\/\//, '');
+        Sockets.consumer = createConsumer("wss://" + host + "/cable", bearer.bearer.split(" ")[1]);
+//        var host = apiUrl.replace(/^https:\/\//, '').replace(/:[0-9]{4}$/, '');
+//        Sockets.consumer = createConsumer("wss://otodavar-api.fetsh.me/cable", bearer.bearer.split(" ")[1]);
+//        Sockets.consumer = createConsumer("wss://localhost:3001/cable", bearer.bearer.split(" ")[1]);
 
         Sockets.notificationsSub = Sockets.consumer.subscriptions.create({channel: "NotificationsChannel"}, {
             initialized: function() { console.log("cable initialized") },

@@ -112,6 +112,18 @@
 .surface-1 {
     background-color: var(--md-sys-color-surface-1);
 }
+.surface-2 {
+    background-color: var(--md-sys-color-surface-2);
+}
+.surface-3 {
+    background-color: var(--md-sys-color-surface-3);
+}
+.surface-3-text {
+    color: var(--md-sys-color-surface-3);
+}
+.on-surface-1-text {
+    color: var(--md-sys-color-surface-1);
+}
 .surface-7 {
     background-color: var(--md-sys-color-surface-7);
 }

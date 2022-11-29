@@ -15,6 +15,7 @@ import User.User as User exposing (SimpleInfo, User)
 type alias SharedModel =
     { key : Nav.Key
     , url : Url
+    , apiUrl : Url
     , auth : Auth
     }
 
@@ -26,8 +27,8 @@ type Error
     = ErrCacheParse Decode.Error
     | ErrInfoGet Http.Error
 
-guest : Nav.Key -> Url -> SharedModel
-guest key url_ = SharedModel key url_ (Guest Nothing)
+guest : Nav.Key -> Url -> Url -> SharedModel
+guest key url_ apiUrl = SharedModel key url_ apiUrl (Guest Nothing)
 
 
 bearer : SharedModel -> Maybe Bearer
@@ -82,16 +83,6 @@ user sm =
         Guest _ ->
             Nothing
 
-getUserInfo :(WebData SimpleInfo -> msg) -> SharedModel -> Cmd msg
-getUserInfo toMsg session =
-    let
-        url_ = OtoApi.routes.me
-        message bearer_ = RemoteData.Http.getWithConfig (config bearer_) url_ toMsg User.decoderUserInfo
-    in
-    session |> bearer |> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
-
-
-
 login : User -> Cmd msg
 login user_ =
     storeSession (Just (User.encode user_))
@@ -118,7 +109,7 @@ decode oldModel value =
                 Ok Nothing ->
                     Guest Nothing
                 Err error ->
-                    Guest (Just (ErrCacheParse (Debug.log "Error: " error)))
+                    Guest (Just (ErrCacheParse error))
     in
     { oldModel | auth = newAuth}
 

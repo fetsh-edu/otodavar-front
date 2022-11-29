@@ -14,6 +14,7 @@ import Maybe
 import Msg exposing (Msg(..))
 import Notifications exposing (Notification, Notifications, onNotification)
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
+import OtoApi
 import Profile
 import RemoteData exposing (WebData)
 import Route exposing (Route)
@@ -63,6 +64,7 @@ type Model
 type alias Flags =
   { bytes : Maybe (List Int)
   , bearer : Encode.Value
+  , apiUrl : String
   }
 
 init : Flags -> Url -> Key -> ( Model, Cmd Msg )
@@ -70,7 +72,8 @@ init flags url navKey =
     let
         tokenResult = Login.parseToken url
         maybeBytes = Maybe.map convertBytes flags.bytes
-        sharedModel url_ = SharedModel.decode (SharedModel.guest navKey url_) flags.bearer
+        apiUrl = Url.fromString flags.apiUrl |> Maybe.withDefault OtoApi.defaultApiUrl
+        sharedModel url_ = SharedModel.decode (SharedModel.guest navKey url_ apiUrl) flags.bearer
     in
     case (tokenResult, maybeBytes) of
         (OAuth.Error error, _) ->
@@ -109,7 +112,7 @@ init flags url navKey =
                         ( newModel
                         , Cmd.batch
                             [ newCmd
-                            , Notifications.get (GotNotificationsMsg << Notifications.GotNotifications) (SharedModel.bearer (sharedModel url))
+                            , Notifications.get apiUrl (GotNotificationsMsg << Notifications.GotNotifications) (SharedModel.bearer (sharedModel url))
                             ]
                         )
                    )
@@ -135,7 +138,7 @@ changeRouteTo maybeRoute model =
     if (SharedModel.isGuest session) && protected then
         ( model, Route.replaceUrl (SharedModel.navKey session) Route.Login )
     else
-        case (Debug.log "maybeRoute" maybeRoute) of
+        case maybeRoute of
             Nothing ->
                 ( model, Route.replaceUrl (SharedModel.navKey session) Route.Home )
             Just Route.Logout ->
@@ -187,7 +190,7 @@ update msg model =
             in
             (newModel, Cmd.batch
                 [ Navigation.replaceUrl (SharedModel.navKey sharedModel) initUrl
-                , Notifications.get (GotNotificationsMsg << Notifications.GotNotifications) (SharedModel.bearer sharedModel)
+                , Notifications.get (sharedModel.apiUrl) (GotNotificationsMsg << Notifications.GotNotifications) (SharedModel.bearer sharedModel)
                 ]
             )
 
@@ -242,7 +245,7 @@ toggleNotifications model bool =
                     |> getSharedModel |> SharedModel.notifications
                     |> Maybe.map (.items >> RemoteData.withDefault [] >> List.filter (not << .seen))
                     |> Maybe.andThen (List.head >> Maybe.map .id)
-                    |> Maybe.map (Notifications.markAsSeen (GotNotificationsMsg << Notifications.GotNotifications) (model |> getSharedModel |> SharedModel.bearer))
+                    |> Maybe.map (Notifications.markAsSeen (model |> getSharedModel |> .apiUrl) (GotNotificationsMsg << Notifications.GotNotifications) (model |> getSharedModel |> SharedModel.bearer))
                     |> Maybe.withDefault Cmd.none
 
         newSession = model |> getSharedModel |> SharedModel.updateNotifications (\n -> {n | shown = bool})

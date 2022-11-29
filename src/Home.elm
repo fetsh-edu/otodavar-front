@@ -17,7 +17,7 @@ import User.Bearer as Bearer
 import User.Name as Name
 import User.Uid exposing (Uid)
 import User.User as User exposing (SimpleInfo, User)
-import View.Helper
+import View.Helper exposing (nbsp)
 
 type alias Model =
     { session : SharedModel
@@ -61,12 +61,12 @@ view translator { session, home } =
     let
         body =
             case SharedModel.user session of
-                Nothing -> [ View.Helper.smallContainer "Please refresh this page. And if you can, tell about this error to developer." ]
+                Nothing -> [ View.Helper.loadingContainer "Please refresh this page. And if you can, tell about this error to developer." ]
                 Just user ->
                     case home of
-                        NotAsked -> [ View.Helper.smallContainer "Not asked" ]
-                        Loading -> [ View.Helper.smallContainer "loading" ]
-                        Failure e -> [ View.Helper.smallContainer "Failure" ]
+                        NotAsked -> [ View.Helper.loadingContainer "Not asked" ]
+                        Loading -> loadingContent
+                        Failure e -> [ View.Helper.loadingContainer "Failure" ]
                         Success a -> successContent translator user session a
 
     in
@@ -75,13 +75,42 @@ view translator { session, home } =
         }
 
 
+loadingContent =
+    let
+        fakeSection list =
+            div
+            [ class "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-1-text"]
+            [ div [ class "rounded-t-lg py-2 px-4 font-bold surface-1"] [ text nbsp ]
+            , div [] list
+            ]
+        fakeItem text_ =
+            div
+                [ class "flex flex-row items-center uppercase on-surface-variant-text align-center justify-center items-center h-16"]
+                [ span [ class "m-2"] [ span [] [text text_] ]
+                ]
+        fakeButton title_ text_ =
+            div
+                [ class "flex flex-row items-center surface-3-text"]
+                [ span [ class "h-12 w-12 m-2" ] [ span [ class "material-symbols-outlined md-48" ][ text title_ ] ]
+                , span [ class "ml-2 flex-1 py-3"] [ span [] [text text_] ]
+                ]
+    in
+    [ View.Helper.container
+        [ div [ class "animate-pulse"]
+            [ fakeSection [ fakeItem "Loading" ]
+            , fakeSection [ fakeButton "add_circle" "Play a Friend", fakeButton "auto_awesome" "Play a Random Partner" ]
+            , fakeSection [ fakeButton "" "", fakeButton "" "", fakeButton "" "", fakeButton "" "" ]
+            ]
+        ]
+    ]
+
 successContent : Translator msg -> User -> SharedModel -> Games -> List (Html msg)
 successContent { onRandomLaunch, toSelf } me session games =
     [ View.Helper.container
         [ myTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) |> List.filter SGame.isMyTurn)
         , playButtonsSection me games.randomGame onRandomLaunch
         , partnersTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) |> List.filter SGame.isPartnersTurn)
-        , oldGamesSection (games.closedGames |> List.map (Debug.log "Game" >> SGame.fromGame (me |> User.info |> .uid |> Just)))
+        , oldGamesSection (games.closedGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)))
         ]
     ]
 
@@ -160,7 +189,7 @@ gamesSection title classes games =
 get : SharedModel -> Cmd Msg
 get session =
     let
-        url = OtoApi.routes.home
+        url = (OtoApi.routes session.apiUrl).home
         message bearer = RemoteData.Http.getWithConfig (config bearer) url HomeReceived Games.decoder
     in
     session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none

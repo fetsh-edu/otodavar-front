@@ -10,6 +10,7 @@ import OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Route
+import Url exposing (Url)
 import User.Bearer as Bearer exposing (Bearer)
 import Time
 import User.Name exposing (Name(..))
@@ -91,19 +92,19 @@ friendRequestDecoder a =
 
 
 
-get : (WebData (List Notification) -> msg) -> Maybe Bearer -> Cmd msg
-get toMsg bearer =
+get : Url -> (WebData (List Notification) -> msg) -> Maybe Bearer -> Cmd msg
+get apiUrl toMsg bearer =
     let
-        url = OtoApi.routes.notifications.index
+        url = (OtoApi.routes apiUrl).notifications.index
         message bearer_ = RemoteData.Http.getWithConfig (config bearer_) url toMsg (Decode.list decoder)
     in
     bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
-markAsSeen : (WebData (List Notification) -> msg) -> Maybe Bearer -> Int -> Cmd msg
-markAsSeen toMsg bearer id =
+markAsSeen : Url -> (WebData (List Notification) -> msg) -> Maybe Bearer -> Int -> Cmd msg
+markAsSeen apiUrl toMsg bearer id =
     let
-        url = OtoApi.routes.notifications.markAsSeen
+        url = (OtoApi.routes apiUrl).notifications.markAsSeen
         message bearer_ = RemoteData.Http.postWithConfig (config bearer_) url toMsg (Decode.list decoder) (encode { id = id })
     in
     bearer |> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none

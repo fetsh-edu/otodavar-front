@@ -10,6 +10,7 @@ import Helpers exposing (onEnter)
 import Html exposing (Html, a, button, div, input, p, span, text)
 import Html.Attributes exposing (class, disabled, placeholder, style, value)
 import Html.Events exposing (onClick, onInput)
+import Http exposing (Error(..))
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import OtoApi exposing (config)
@@ -22,7 +23,7 @@ import User.Bearer as Bearer
 import User.Name as Name
 import User.Uid as Uid exposing (Uid)
 import User.User as User exposing (User)
-import View.Helper
+import View.Helper exposing (nbsp)
 
 type alias Model =
     { session : SharedModel
@@ -79,9 +80,6 @@ update msg model =
             then ( model, model.game |> RemoteData.map (Game.uid >> get (model.session)) |> RemoteData.withDefault Cmd.none )
             else ( model, Cmd.none )
         GotWordFromSocket (Err e) ->
-            let
-                a = Debug.log "Error word from socket" e
-            in
             (model, Cmd.none)
 
 launchCmd : SharedModel -> Maybe Uid -> Cmd Msg
@@ -91,7 +89,7 @@ launchCmd session maybeUid =
             maybeUid
                 |> Maybe.map (Uid.encode >> (\x -> ("user_uid", x)) >> List.singleton >> Encode.object)
                 |> Maybe.withDefault Encode.null
-        url = OtoApi.routes.game.start
+        url = (OtoApi.routes session.apiUrl).game.start
         message bearer =
             RemoteData.Http.postWithConfig
                 (OtoApi.config bearer)
@@ -106,7 +104,7 @@ launchCmd session maybeUid =
 get : SharedModel -> Uid -> Cmd Msg
 get session uid =
     let
-        url = OtoApi.routes.game.show uid
+        url = (OtoApi.routes session.apiUrl).game.show uid
         decoder = (Game.decoder (session |> SharedModel.user |> Maybe.map(.uid << User.info)))
         message bearer = RemoteData.Http.getWithConfig (config bearer) url GameReceived decoder
     in
@@ -119,7 +117,7 @@ submitGuess session guess game =
         WrongState _ -> Cmd.none
         RightState state ->
             let
-                url = OtoApi.routes.word.create
+                url = (OtoApi.routes session.apiUrl).word.create
                 decoder = (Game.decoder (session |> SharedModel.user |> Maybe.map(.uid << User.info)))
                 guessValue =
                     Word.encoder
@@ -150,17 +148,58 @@ gameView translator me model =
         some =
             case model.game of
                 -- TODO: Handle this
-                NotAsked -> [ View.Helper.smallContainer "not asked" ]
-                Loading -> [ View.Helper.smallContainer "loading" ]
-                Failure e -> [View.Helper.smallContainer "failure" ]
+                NotAsked -> [ View.Helper.loadingContainer "not asked" ]
+                Loading -> [ loadingContent ]
                 Success a -> successContent translator me model.guess a
+                Failure e ->
+                    case e of
+                        BadStatus 404 -> [ View.Helper.notFound ]
+                        _ -> [View.Helper.simpleSmallContainer [text "ERROR"]]
     in
     some
+
+
+loadingContent : Html msg
+loadingContent =
+    let
+        leftAvatar =
+            span
+                [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ]
+                [ span
+                    [ class "w-20 h-20 filter drop-shadow-sm sm:drop-shadow-xl rounded-lg align-middle border-none"
+                    , class "surface-variant"
+                    ]
+                    []
+                , span [ class "tertiary-container-text"] [text "Someone"]
+                ]
+        speechBubble =
+            div
+                [ class "flex z-10 mt-2 surface-7 on-surface-text text-sm p-2 pl-3 w-full h-12 rounded-lg filter drop-shadow speech"
+                , class "speech-left"
+                ]
+                [ div [ class "flex w-full justify-center items-center font-medium text-lg truncate overflow-ellipses on-surface-variant-text"] [span [class "uppercase"] [text "loading"]] ]
+    in
+    View.Helper.container
+        [ div
+            [ class "secondary-container on-secondary-container-text rounded-lg animate-pulse" ]
+            [ div
+                [ class "tertiary-container on-tertiary-container-text rounded-lg p-4 filter drop-shadow overflow-hidden"]
+                [ div [class "flex z-10 flex-row justify-around"]
+                    [ leftAvatar
+                    , span
+                        [ class "flex items-center w-40 flex-col z-1 relative" ]
+                        [ leftAvatar]
+                    ]
+                , speechBubble
+                ]
+            , div [ class "px-4 pb-4"] [ text nbsp ]
+            ]
+        ]
 
 successContent : Translator msg -> User -> String -> Game -> List (Html msg)
 successContent translator me value_ sGame =
     case sGame of
-        WrongState otoGame -> [View.Helper.smallContainer "Game is in some wrong state. It shouldn't be possible. If you can, send this url to developer." ]
+        WrongState otoGame -> [View.Helper.loadingContainer "Game is in some wrong state. It shouldn't be possible. If you can, send this url to developer." ]
         RightState state ->
             [ View.Helper.container
                 [ div
@@ -250,7 +289,7 @@ currentGuess translator value_ sGame =
                         case sGame of
                             Game.Mine _ _ p_ ->
                                 case p_.guess of
-                                    Game.LeftGuess _ -> p [ class "text-center mt-4"] [ text "Now it's partners turn" ]
+                                    Game.LeftGuess _ -> p [ class "text-center mt-4"] [ text "Now it's partner's turn" ]
                                     _ -> p [ class "text-center mt-4"] [ text "Say your first word, any word!" ]
                             Game.Others _ _ _ -> text ""
 
