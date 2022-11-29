@@ -350,7 +350,7 @@ userList actionButton_ title_ class_ users =
             , class class_
             ]
             [ text title_ ]
-         , div [ class "divide-y divide-pink-200"] (List.map (friendView actionButton_) users)
+         , div [ class "divide-y divide-light"] (List.map (friendView actionButton_) users)
          ]
 
 

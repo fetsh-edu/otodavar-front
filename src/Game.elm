@@ -170,7 +170,7 @@ loadingContent =
                     , class "surface-variant"
                     ]
                     []
-                , span [ class "tertiary-container-text"] [text "Someone"]
+                , span [ class "tertiary-container-text"] [text nbsp]
                 ]
         speechBubble =
             div
@@ -181,9 +181,9 @@ loadingContent =
     in
     View.Helper.container
         [ div
-            [ class "secondary-container on-secondary-container-text rounded-lg animate-pulse" ]
+            [ class "surface-1 rounded-lg animate-pulse" ]
             [ div
-                [ class "tertiary-container on-tertiary-container-text rounded-lg p-4 filter drop-shadow overflow-hidden"]
+                [ class "surface-1 on-tertiary-container-text rounded-lg p-4 filter drop-shadow overflow-hidden"]
                 [ div [class "flex z-10 flex-row justify-around"]
                     [ leftAvatar
                     , span
@@ -244,12 +244,15 @@ currentGuess translator value_ sGame =
                 else text ""
 
         winBubble =
-            div
-                [ class "flex justify-center items-center absolute w-full top-8"]
-                [ span
-                    [ class "surface-2 on-surface-text rounded-full py-3 px-4 text-2xl tracking-tight font-bold"]
-                    [ span [ class "material-symbols-outlined font-bold text-3xl" ] [ text "done_all"]]
-                    ]
+            if (Game.payload sGame |> .status) == Status.Closed
+            then
+                div
+                    [ class "flex justify-center items-center absolute w-full top-8", style "z-index" "-1"]
+                    [ span
+                        [ class "surface-2 on-surface-text rounded-full py-3 px-4 text-2xl tracking-tight font-bold"]
+                        [ span [ class "material-symbols-outlined font-bold text-3xl" ] [ text "done_all"]]
+                        ]
+            else text ""
         winBubble_ =
             if (Game.payload sGame |> .status) == Status.Closed
             then
@@ -270,15 +273,6 @@ currentGuess translator value_ sGame =
                             ]
                         ]
                     ]
-            --then div
-            --    [ class "surface top-20 rounded-lg absolute px-4 py-2 w-full left-0 simple-arc", style "z-index" "-1" ]
-            --    [ span [] [text "s"]
-            --    , span [] [text "a"]
-            --    , span [] [text "b"]
-            --    , span [] [text "a"]
-            --    , span [] [text "b"]
-            --    , span [] [text "a"]
-            --    ]
             else text ""
 
         speechBubble =
