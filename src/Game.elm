@@ -1,6 +1,7 @@
 port module Game exposing (..)
 
 import Browser exposing (Document)
+import Browser.Navigation as Navigation
 import Game.GameStatus as Status
 import Game.OtoGame as OtoGame exposing (OtoGame)
 import Game.Game as Game exposing (Game(..))
@@ -59,9 +60,14 @@ update msg model =
     case msg of
         GameReceived webData ->
             ( { model | game = webData }
-            , webData
-                |> RemoteData.map (Game.uid >> joinChannelSocket)
-                |> RemoteData.withDefault Cmd.none
+            , Cmd.batch
+                [ webData
+                    |> RemoteData.map (Game.uid >> joinChannelSocket)
+                    |> RemoteData.withDefault Cmd.none
+                , webData
+                    |> RemoteData.map (Game.uid >> Route.Game >> Route.routeToString >> Navigation.pushUrl (model |> toSession |> .key))
+                    |> RemoteData.withDefault Cmd.none
+                ]
             )
         OnGuessChange str ->
             ( { model | guess = str }, Cmd.none)

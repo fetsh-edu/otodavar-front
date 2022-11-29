@@ -3,6 +3,7 @@ port module Main exposing (Model, init, main, update, view)
 import Browser exposing (Document, application)
 import Browser.Navigation as Navigation exposing (Key)
 import Game
+import Game.Game as G
 import Home
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -127,6 +128,15 @@ getSharedModel page =
         Game game -> Game.toSession game
 
 
+toRoute : Model -> Maybe Route
+toRoute model =
+    case model of
+        Home _ -> Just Route.Home
+        Login _ -> Just Route.Login
+        Profile some -> Just (Route.Profile some.uid)
+        Game some -> some.game |> RemoteData.map (G.uid >> Route.Game >> Just) |> RemoteData.withDefault Nothing
+
+
 changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
 changeRouteTo maybeRoute model =
     let
@@ -150,7 +160,18 @@ changeRouteTo maybeRoute model =
             Just (Route.Profile uid) ->
                 updateWith Profile GotProfileMsg (Profile.init session uid)
             Just (Route.Game uid) ->
-                updateWith Game GotGameMsg (Game.init session uid)
+                let
+                    newState = updateWith Game GotGameMsg (Game.init session uid)
+                    oldState = (model, Cmd.none)
+                in
+                case model of
+                    Game { game } ->
+                        if game |> RemoteData.map (G.uid >> (/=) uid) |> RemoteData.withDefault False then
+                            newState
+                        else
+                            oldState
+                    _ -> newState
+
 
 
 -- ---------------------------
@@ -352,10 +373,10 @@ header_ model =
     in
     header [class "flex flex-col container md:max-w-5xl relative"]
         [ span
-            [ class "background on-background-text letter border border-gray-100 absolute top-0 left-0 ml-4" ]
+            [ class "surface-1 on-surface-variant-text letter absolute top-0 left-0 ml-4  filter drop-shadow" ]
             [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ] ]
         , span
-            [ class "cursor-pointer background on-background-text letter border border-gray-100 absolute top-0 right-0 mr-4"
+            [ class "cursor-pointer surface-1 on-surface-variant-text letter absolute top-0 right-0 mr-4 filter drop-shadow"
             , onClick ShowNotifications]
             [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ]
             , notificationPill
