@@ -15,6 +15,7 @@ import User.User as User exposing (SimpleInfo, User)
 type alias SharedModel =
     { key : Nav.Key
     , url : Url
+    , currentUrl : Url
     , apiUrl : Url
     , auth : Auth
     }
@@ -27,8 +28,8 @@ type Error
     = ErrCacheParse Decode.Error
     | ErrInfoGet Http.Error
 
-guest : Nav.Key -> Url -> Url -> SharedModel
-guest key url_ apiUrl = SharedModel key url_ apiUrl (Guest Nothing)
+guest : Nav.Key -> Url -> Url-> Url -> SharedModel
+guest key url_ currentUrl apiUrl = SharedModel key url_ currentUrl apiUrl (Guest Nothing)
 
 
 bearer : SharedModel -> Maybe Bearer

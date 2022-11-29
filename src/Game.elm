@@ -7,7 +7,7 @@ import Game.OtoGame as OtoGame exposing (OtoGame)
 import Game.Game as Game exposing (Game(..))
 import Game.Round as Round exposing (Round(..))
 import Game.Word as Word exposing (Word)
-import Helpers exposing (onEnter)
+import Helpers exposing (maybeFilter, onEnter)
 import Html exposing (Html, a, button, div, input, p, span, text)
 import Html.Attributes exposing (class, disabled, id, placeholder, style, value)
 import Html.Events exposing (onClick, onInput)
@@ -59,14 +59,20 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GameReceived webData ->
+            let
+                gameRoute = webData |> RemoteData.map (Game.uid >> Route.Game) |> RemoteData.toMaybe
+                currentRoute = Route.fromUrl (model.session.currentUrl)
+            in
             ( { model | game = webData }
             , Cmd.batch
                 [ webData
                     |> RemoteData.map (Game.uid >> joinChannelSocket)
                     |> RemoteData.withDefault Cmd.none
-                , webData
-                    |> RemoteData.map (Game.uid >> Route.Game >> Route.routeToString >> Navigation.pushUrl (model |> toSession |> .key))
-                    |> RemoteData.withDefault Cmd.none
+                , gameRoute |> Maybe.andThen ( \gR -> currentRoute |> Maybe.map( \cR ->
+                    if cR /= gR
+                    then Navigation.pushUrl (model |> toSession |> .key) (Route.routeToString gR)
+                    else Cmd.none
+                ) ) |> Maybe.withDefault Cmd.none
                 ]
             )
         OnGuessChange str ->

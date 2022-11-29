@@ -74,7 +74,7 @@ init flags url navKey =
         tokenResult = Login.parseToken url
         maybeBytes = Maybe.map convertBytes flags.bytes
         apiUrl = Url.fromString flags.apiUrl |> Maybe.withDefault OtoApi.defaultApiUrl
-        sharedModel url_ = SharedModel.decode (SharedModel.guest navKey url_ apiUrl) flags.bearer
+        sharedModel url_ = SharedModel.decode (SharedModel.guest navKey url_ url_ apiUrl) flags.bearer
     in
     case (tokenResult, maybeBytes) of
         (OAuth.Error error, _) ->
@@ -192,7 +192,7 @@ update msg model =
         ( ClickedLink urlRequest, _ ) ->
             case urlRequest of
                 Browser.Internal url ->
-                    ( model
+                    ( (model |> getSharedModel |> (\x -> { x | currentUrl = url } ) |> updateSharedModel) model
                     , Navigation.pushUrl (SharedModel.navKey (getSharedModel model)) (Url.toString url)
                     )
 
