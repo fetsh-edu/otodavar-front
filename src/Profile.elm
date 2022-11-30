@@ -26,18 +26,23 @@ type alias Model =
     , uid : Uid
     , flow : WebData User.FullInfo
     , friendRequest : WebData User.FullInfo
+    , confirmUnfriend : Maybe FriendRequest
     }
+
+type alias FriendRequest
+    = { friend : Uid, resource : Uid}
 
 type Msg
     = HandleProfileResponse (WebData User.FullInfo)
     | HandleFriendRequest (WebData User.FullInfo)
-    | AddFriendRequested { friend : Uid, resource : Uid}
-    | RemoveFriendRequested { friend : Uid, resource : Uid}
-    | AcceptFriendRequested { friend : Uid, resource : Uid}
+    | AddFriendRequested FriendRequest
+    | RemoveFriendRequested FriendRequest
+    | AcceptFriendRequested FriendRequest
+    | ConfirmUnfriend (Maybe FriendRequest)
 
 init : SharedModel -> Uid -> (Model, Cmd Msg)
 init session uid =
-    ({session = session, uid = uid, flow = Loading, friendRequest = NotAsked}, get session uid)
+    ({session = session, uid = uid, flow = Loading, friendRequest = NotAsked, confirmUnfriend = Nothing}, get session uid)
 
 
 updateSession : SharedModel -> Model -> Model
@@ -64,10 +69,13 @@ update msg model =
                     (model, Cmd.none)
 
         RemoveFriendRequested obj ->
-            ( {model | friendRequest = Loading}, friendRequestRemove (toSession model) obj )
+            ( {model | friendRequest = Loading, confirmUnfriend = Nothing}, friendRequestRemove (toSession model) obj )
 
         AcceptFriendRequested obj ->
             ( {model | friendRequest = Loading}, friendRequestAccept (toSession model) obj )
+
+        ConfirmUnfriend fr ->
+            ( { model | confirmUnfriend = fr }, Cmd.none )
 
 
 friendRequest : SharedModel -> { friend : Uid, resource : Uid } -> Cmd Msg
@@ -120,7 +128,7 @@ view translator model =
             Nothing -> [ text "SHOULDN'T BE POSSIBLE" ]
             Just me ->
                 case model.flow of
-                    Success pageUser -> [ successContent translator (model |> toSession) me pageUser]
+                    Success pageUser -> [ successContent translator (model |> toSession) me pageUser model.confirmUnfriend]
                     NotAsked -> [View.Helper.loadingContainer "NOT ASKED"]
                     Loading -> [ loadingContent]
                     -- TODO: Handle all this
@@ -179,8 +187,8 @@ loadingContent =
 
 
 
-successContent : Translator msg -> SharedModel -> User -> User.FullInfo -> Html msg
-successContent ({ toSelf, onGameStart } as translator) session me pageUser =
+successContent : Translator msg -> SharedModel -> User -> User.FullInfo -> Maybe FriendRequest -> Html msg
+successContent ({ toSelf, onGameStart } as translator) session me pageUser fr =
     let
         friendStatus = pageUser.friendStatus
         friendButton =
@@ -190,17 +198,17 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser =
                  case friendStatus of
                      Me -> text ""
                      Unknown ->
-                         actionButton { icon = "person_add", title = Just "Add", action = Just (toSelf (AddFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "add" }
+                         actionButton { icon = "person_add", title = Just "Add", action = Just (toSelf (AddFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "add", shy = False }
                      Friend ->
-                         actionButton { icon = "person_remove", title = Just "Remove", action = Just (toSelf (RemoveFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove" }
+                         actionButton { icon = "person_remove", title = Nothing, action = Just (toSelf (ConfirmUnfriend (Just { friend = pageUser.uid, resource = pageUser.uid}))), id_ = "remove", shy = True }
                      Requested ->
-                         actionButton { icon = "hourglass_top", title = Just "Pending approval", action = Nothing, id_ = "remove" }
+                         actionButton { icon = "hourglass_top", title = Just "Pending approval", action = Nothing, id_ = "remove", shy = False }
                      Wannabe ->
-                         actionButton { icon = "person_add", title = Just "Accept", action = Just (toSelf (AcceptFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove" }
+                         actionButton { icon = "person_add", title = Just "Accept", action = Just (toSelf (AcceptFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove", shy = False }
                     --
         playButton =
             if friendStatus == Friend then
-                actionButton { icon = "sports_esports", title = Just "Play", action = Just <| onGameStart <| Just <| pageUser.uid, id_ = "play" }
+                actionButton { icon = "sports_esports", title = Just "Play", action = Just <| onGameStart <| Just <| pageUser.uid, id_ = "play", shy = False }
             else
                 text ""
 
@@ -213,7 +221,13 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser =
                 ]
                 []
         actionButtons =
-            [ friendButton, playButton ]
+            case fr of
+                Nothing ->
+                    [ friendButton, playButton ]
+                Just fr_ ->
+                    [ actionButton { icon = "person_remove", title = Just "Cancel", action = Just (toSelf (ConfirmUnfriend Nothing)), id_ = "remove", shy = False }
+                    , actionButton { icon = "person_remove", title = Just "Remove", action = Just (toSelf (RemoveFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove", shy = False }
+                    ]
 
         counters =
             [ counter pageUser.friendsCount "Friends"
@@ -270,6 +284,7 @@ incomingRequests { toSelf } me pageUser =
                 , title = Nothing
                 , action = Just (toSelf (AcceptFriendRequested {friend = user.uid, resource = pageUser.uid}))
                 , id_ = "accept" ++ (Uid.toString user.uid)
+                , shy = False
                 }
     in
     case pageUser.incomingFriendRequests of
@@ -308,6 +323,7 @@ friendsList ( { toSelf, onGameStart } as translator) me pageUser =
                         , title = Nothing
                         , action = Just <| onGameStart <| Just <| user.uid
                         , id_ = "play" ++ (Uid.toString user.uid)
+                        , shy = False
                         }
                 Requested ->
                     actionButton
@@ -315,6 +331,7 @@ friendsList ( { toSelf, onGameStart } as translator) me pageUser =
                         , title = Nothing
                         , action = Nothing
                         , id_ = "pending" ++ (Uid.toString user.uid)
+                        , shy = False
                         }
                 Wannabe ->
                     actionButton
@@ -322,6 +339,7 @@ friendsList ( { toSelf, onGameStart } as translator) me pageUser =
                         , title = Nothing
                         , action = Just (toSelf (AcceptFriendRequested {friend = user.uid, resource = pageUser.uid}))
                         , id_ = "accept" ++ (Uid.toString user.uid)
+                        , shy = False
                         }
                 Unknown ->
                     actionButton
@@ -329,6 +347,7 @@ friendsList ( { toSelf, onGameStart } as translator) me pageUser =
                         , title = Nothing
                         , action = Just (toSelf (AddFriendRequested { friend = user.uid, resource = pageUser.uid}))
                         , id_ = "add_friend" ++ (Uid.toString user.uid)
+                        , shy = False
                         }
 
     in
@@ -400,15 +419,15 @@ shareButton userInfo session =
         , text "Copy URL"
         ]
 
-actionButton : { a | icon : String, title : Maybe String, action : Maybe msg, id_ : String } -> Html msg
-actionButton {icon, title, action, id_} =
+actionButton : { a | icon : String, title : Maybe String, action : Maybe msg, id_ : String, shy : Bool } -> Html msg
+actionButton {icon, title, action, id_, shy} =
     let
         disabled_ =
             case action of
                 Nothing -> True
                 Just _ -> False
         colors =
-            if disabled_ then
+            if disabled_ || shy then
                 "background on-background-text"
             else
                 "primary on-primary-text"

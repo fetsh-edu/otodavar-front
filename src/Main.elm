@@ -377,7 +377,7 @@ header_ model =
             else
                 text ""
     in
-    header [class "flex flex-col container md:max-w-5xl px-4"]
+    header [class "flex flex-col container md:max-w-5xl px-4 select-none"]
         [ div [ class "flex flex-row w-full justify-between"]
             [ span
                 [ class "cursor-pointer surface-1 on-surface-variant-text letter w-10 h-10 md:w-12 md:h-12 filter drop-shadow"
