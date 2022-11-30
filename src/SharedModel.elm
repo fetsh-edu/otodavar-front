@@ -15,6 +15,7 @@ import User.User as User exposing (SimpleInfo, User)
 type alias SharedModel =
     { key : Nav.Key
     , url : Url
+    , drawer : Bool
     , currentUrl : Url
     , apiUrl : Url
     , auth : Auth
@@ -29,7 +30,7 @@ type Error
     | ErrInfoGet Http.Error
 
 guest : Nav.Key -> Url -> Url-> Url -> SharedModel
-guest key url_ currentUrl apiUrl = SharedModel key url_ currentUrl apiUrl (Guest Nothing)
+guest key url_ currentUrl apiUrl = SharedModel key url_ False currentUrl apiUrl (Guest Nothing)
 
 
 bearer : SharedModel -> Maybe Bearer

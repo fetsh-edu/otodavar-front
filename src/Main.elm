@@ -19,9 +19,11 @@ import OtoApi
 import Profile
 import RemoteData exposing (WebData)
 import Route exposing (Route)
-import SharedModel exposing (SharedModel, logout)
+import SharedModel exposing (Auth(..), SharedModel, logout)
 import Url exposing (Protocol(..), Url)
-import User.User exposing (User(..))
+import User.Avatar as Avatar
+import User.Name as Name
+import User.User as User exposing (User(..))
 
 main : Program Flags Model Msg
 main =
@@ -255,6 +257,10 @@ update msg model =
             updateWith Game GotGameMsg (Game.update subMsg subModel)
         ( GotGameMsg _, _) -> noOp model
         (ToggleDarkMode, _) -> (model, toggleDarkMode ())
+        (HideDrawer, _) ->
+            ((model |> getSharedModel |> (\x -> { x | drawer = False } ) |> updateSharedModel) model, Cmd.none)
+        (ShowDrawer, _) ->
+            ((model |> getSharedModel |> (\x -> { x | drawer = True } ) |> updateSharedModel) model, Cmd.none)
 
 toggleNotifications : Model -> Bool -> (Model, Cmd Msg)
 toggleNotifications model bool =
@@ -344,7 +350,6 @@ view model =
         Game subModel ->    Game.view { toSelf = GotGameMsg } subModel |> mapOver
 
 
-
 header_ : Model -> Html Msg
 header_ model =
     let
@@ -375,6 +380,7 @@ header_ model =
     header [class "flex flex-col container md:max-w-5xl relative"]
         [ span
             [ class "surface-1 on-surface-variant-text letter absolute top-0 left-0 ml-4  filter drop-shadow"
+            , onClick ShowDrawer
             ]
             [ span [ class "material-symbols-outlined md-18" ] [ text "menu" ] ]
         , span
@@ -399,7 +405,69 @@ header_ model =
             ]
         , div [ class "secondary-text text-sm md:text-base pt-2 justify-center"] [ text "The game you've been waiting for so long"]
         , modal model
+        , drawer model
         ]
+
+
+drawer : Model -> Html Msg
+drawer model =
+    let
+        visibility = if model |> getSharedModel |> .drawer then "" else "hidden"
+        avatar =
+            case model |> getSharedModel |> SharedModel.user of
+                Just u_ ->
+                    img
+                        [ u_ |> User.info |> .avatar |> Avatar.toString |> src
+                        , attribute "referrerpolicy" "no-referrer"
+                        , class "rounded-lg w-14 h-14"
+                        , style "min-width" "48px"
+                        ] []
+                Nothing ->
+                    span [ class "material-symbols-outlined md-48" ][ text "psychology_alt" ]
+
+        name =
+            case model |> getSharedModel |> SharedModel.user of
+                Just some ->
+                    span
+                        [ class "ml-3 flex-1 py-3 flex flex-col whitespace-nowrap"]
+                        [ span [class "font-bold"] [ some |> User.info |> .name |> Name.toString |> text ]
+                        , a [ class "text-xs uppercase on-surface-variant-text", Route.href Route.Logout ] [ text "Sign Out" ]
+                        ]
+                Nothing ->
+                    span
+                       [ class "ml-2 flex-1 py-3"]
+                       [ span [] [text "Guest"]
+                       ]
+        userCard =
+            div [ class "flex flex-row  items-center"]
+                [ avatar
+                , name
+                ]
+    in
+    div
+        [ class "fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 py-0 px-0"
+        , class visibility
+        , onClick HideDrawer
+        ]
+        [ div
+            [ class "notifications-container border w-72 shadow-lg rounded-r-md surface on-surface-text h-full flex flex-col"
+            , onClickStopPropagation NoOp
+            ]
+            [ div
+                [ class "border-b border-light-200 text-left pl-4 pt-3 pb-3 flex-none relative"]
+                [ userCard
+                ]
+            , div
+                [ class "overflow-y-auto flex-grow pt-4" ]
+                [ span
+                    [ class "flex relative items-center cursor-pointer drawer-item h-10 px-2 mx-2 mb-2", onClick ToggleDarkMode]
+                    [ span [ class "material-symbols-outlined mr-4" ] [ text "dark_mode"]
+                    , text "Toggle theme"
+                    ]
+                ]
+            ]
+        ]
+
 
 modal : Model -> Html Msg
 modal model =
@@ -448,13 +516,7 @@ onClickStopPropagation msg =
 
 footer_ : Maybe User -> Html Msg
 footer_ user =
-    case user of
-        Nothing -> text ""
-        Just user_ ->
-            div [ class "flex flex-col m-10 justify-center items-center"]
-                [ a [ Route.href Route.Logout ] [ text "Sign out" ]
-                , span [onClick ToggleDarkMode] [ text "Toggle theme"]
-                ]
+    text ""
 
 
 port toggleDarkMode : () -> Cmd msg

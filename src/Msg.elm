@@ -26,4 +26,6 @@ type Msg
     | UserInfoReceived (WebData SimpleInfo)
     | HideNotifications
     | ShowNotifications
+    | HideDrawer
+    | ShowDrawer
     | LaunchGame (Maybe Uid)
