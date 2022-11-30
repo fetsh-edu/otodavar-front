@@ -32,8 +32,8 @@ header {
     //}
 }
 
-.drawer-item {
-
+.drawer-item:hover {
+  background-color: var(--md-sys-color-surface-1);
 }
 
 button {

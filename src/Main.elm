@@ -377,30 +377,32 @@ header_ model =
             else
                 text ""
     in
-    header [class "flex flex-col container md:max-w-5xl relative"]
-        [ span
-            [ class "surface-1 on-surface-variant-text letter absolute top-0 left-0 ml-4  filter drop-shadow"
-            , onClick ShowDrawer
-            ]
-            [ span [ class "material-symbols-outlined md-18" ] [ text "menu" ] ]
-        , span
-            [ class "cursor-pointer surface-1 on-surface-variant-text letter absolute top-0 right-0 mr-4 filter drop-shadow"
-            , onClick ShowNotifications]
-            [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ]
-            , notificationPill
-            ]
-        , div
-            [ class "flex flex-row justify-center" ]
-            [ a
-                [ Route.href Route.Home ]
-                [ span [ class "tertiary-container on-tertiary-container-text letter"] [ text "o" ]
-                , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter"] [ text "t" ]
-                , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter"] [ text "o" ]
-                , span [ class "secondary-container on-secondary-container-text letter"] [ text "d" ]
-                , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "a" ]
-                , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "v" ]
-                , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "a" ]
-                , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter"] [ text "r" ]
+    header [class "flex flex-col container md:max-w-5xl px-4"]
+        [ div [ class "flex flex-row w-full justify-between"]
+            [ span
+                [ class "cursor-pointer surface-1 on-surface-variant-text letter w-10 h-10 md:w-12 md:h-12 filter drop-shadow"
+                , onClick ShowDrawer
+                ]
+                [ span [ class "material-symbols-outlined md-18" ] [ text "menu" ] ]
+            , div
+                [ class "flex flex-row items-center" ]
+                [ a
+                    [ Route.href Route.Home ]
+                    [ span [ class "tertiary-container on-tertiary-container-text letter w-8 h-8 md:w-10 md:h-10"] [ text "o" ]
+                    , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter w-8 h-8 md:w-10 md:h-10"] [ text "t" ]
+                    , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter w-8 h-8 md:w-10 md:h-10"] [ text "o" ]
+                    , span [ class "secondary-container on-secondary-container-text letter w-8 h-8 md:w-10 md:h-10"] [ text "d" ]
+                    , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter w-8 h-8 md:w-10 md:h-10"] [ text "a" ]
+                    , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter w-8 h-8 md:w-10 md:h-10"] [ text "v" ]
+                    , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter w-8 h-8 md:w-10 md:h-10"] [ text "a" ]
+                    , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter w-8 h-8 md:w-10 md:h-10"] [ text "r" ]
+                    ]
+                ]
+            , span
+                [ class "cursor-pointer surface-1 on-surface-variant-text letter filter drop-shadow w-10 h-10 md:w-12 md:h-12"
+                , onClick ShowNotifications]
+                [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ]
+                , notificationPill
                 ]
             ]
         , div [ class "secondary-text text-sm md:text-base pt-2 justify-center"] [ text "The game you've been waiting for so long"]
@@ -460,7 +462,9 @@ drawer model =
             , div
                 [ class "overflow-y-auto flex-grow pt-4" ]
                 [ span
-                    [ class "flex relative items-center cursor-pointer drawer-item h-10 px-2 mx-2 mb-2", onClick ToggleDarkMode]
+                    [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+                    , onClick ToggleDarkMode
+                    ]
                     [ span [ class "material-symbols-outlined mr-4" ] [ text "dark_mode"]
                     , text "Toggle theme"
                     ]
@@ -490,7 +494,7 @@ modal model =
 
             in
             div
-                [ class "fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 py-4 px-4"
+                [ class "fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 py-4 px-4 "
                 , class visibility
                 , onClick HideNotifications
                 ]

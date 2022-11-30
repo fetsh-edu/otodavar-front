@@ -9,5 +9,5 @@ body {
 }
 
 .letter {
-    @apply inline-flex items-center	justify-center w-8 h-8 md:w-10 md:h-10 rounded-md font-bold text-2xl filter drop-shadow
+    @apply inline-flex items-center	justify-center rounded-md font-bold text-2xl filter drop-shadow
 }
