@@ -14,6 +14,7 @@ import User.User exposing (SimpleInfo)
 
 type Msg
     = NoOp
+    | ToggleDarkMode
     | ChangedUrl Url
     | ClickedLink Browser.UrlRequest
     | AuthEmerged SharedModel

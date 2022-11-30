@@ -6,6 +6,7 @@
     "elm-version": "0.19.1",
     "dependencies": {
         "direct": {
+            "aforemny/material-components-web-elm": "8.0.1",
             "andrewMacmurray/elm-delay": "4.0.0",
             "chelovek0v/bbase64": "1.0.1",
             "elm/browser": "1.0.2",
@@ -28,6 +29,7 @@
             "elm/file": "1.0.5",
             "elm/parser": "1.1.0",
             "elm/regex": "1.0.0",
+            "elm/svg": "1.0.1",
             "elm/virtual-dom": "1.0.2",
             "rtfeldman/elm-hex": "1.0.0"
         }

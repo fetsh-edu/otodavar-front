@@ -12,6 +12,36 @@ const bytesKey = "bytes"
 const bearerKey = "bearer"
 
 
+function getTheme() {
+    var theme="light";    //default to light
+    if(localStorage.getItem("theme") && localStorage.getItem("theme") == "dark"){
+        var theme = "dark";
+    } else if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        var theme = "dark";
+    }
+    return theme;
+}
+
+function setDarkMode() {
+    if (getTheme() == "dark") {
+        document.documentElement.classList.remove("light")
+        document.documentElement.classList.add("dark")
+    } else {
+        document.documentElement.classList.remove("dark")
+        document.documentElement.classList.add("light")
+    }
+}
+function toggleDarkMode() {
+    if (getTheme() == "dark") {
+        localStorage.setItem("theme", "light")
+    } else {
+        localStorage.setItem("theme", "dark")
+    }
+    setDarkMode();
+}
+setDarkMode();
+
+
 // TODO. Check how it should be done in JS
 let apiUrl = "https://otodavar-api.fetsh.me";
 if (typeof process !== 'undefined') {
@@ -31,6 +61,140 @@ const flags = {
 }
 
 var app = Elm.Main.init({flags: flags});
+
+
+app.ports.toggleDarkMode.subscribe(() => { toggleDarkMode() });
+
+
+
+// PWA STUFF
+
+const PwaApp = {};
+PwaApp.applicationServerPublicKey = 'BJG6BHoYQJAAFGfjzR1O5TNIOZaJqrS5obFgZ6re__GH4oeli1Xg7q4JQAnJXLEqMCvhOx79KoMsKWDVNAx032g';
+
+function urlB64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+
+if ('serviceWorker' in navigator && 'PushManager' in window) {
+  console.log('Service Worker and Push are supported');
+
+  navigator.serviceWorker.register('sw.js')
+  .then(function(swReg) {
+    console.log('Service Worker is registered', swReg);
+
+    PwaApp.swRegistration = swReg;
+    initializeUI();
+  })
+  .catch(function(error) {
+    console.error('Service Worker Error', error);
+  });
+} else {
+  console.warn('Push messaging is not supported');
+}
+
+
+function initializeUI() {
+  // Set the initial subscription value
+  PwaApp.swRegistration.pushManager.getSubscription()
+  .then(function(subscription) {
+    PwaApp.isSubscribed = !(subscription === null);
+
+    if (PwaApp.isSubscribed) {
+      console.log('User IS subscribed.');
+    } else {
+      console.log('User is NOT subscribed.');
+    }
+    toggleSubscription();
+
+//    updateBtn();
+  });
+}
+
+
+function toggleSubscription() {
+    if (PwaApp.isSubscribed) {
+//      console.log("unsubscribing")
+//      unsubscribeUser();
+    } else {
+      console.log("subscribing")
+      subscribeUser();
+    }
+}
+
+function subscribeUser() {
+  const applicationServerKey = urlB64ToUint8Array(PwaApp.applicationServerPublicKey);
+  PwaApp.swRegistration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: applicationServerKey
+  })
+  .then(function(subscription) {
+    console.log('User is subscribed.');
+
+    updateSubscriptionOnServer(subscription);
+
+    PwaApp.isSubscribed = true;
+
+//    updateBtn();
+  })
+  .catch(function(error) {
+    console.error('Failed to subscribe the user: ', error);
+//    updateBtn();
+  });
+}
+
+
+function unsubscribeUser() {
+  PwaApp.swRegistration.pushManager.getSubscription()
+  .then(function(subscription) {
+    if (subscription) {
+      return subscription.unsubscribe();
+    }
+  })
+  .catch(function(error) {
+    console.log('Error unsubscribing', error);
+  })
+  .then(function() {
+    updateSubscriptionOnServer(null);
+
+    console.log('User is unsubscribed.');
+    PwaApp.isSubscribed = false;
+
+//    updateBtn();
+  });
+}
+
+
+function updateSubscriptionOnServer(subscription) {
+
+  // TODO: Send subscription to application server
+
+  if (subscription) {
+    console.log("Subscription", JSON.stringify(subscription));
+  } else {
+
+  }
+}
+
+
+
+// PWA STAFF
+
+
+
+
 
 const Sockets = {
     games: {}

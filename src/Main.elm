@@ -254,6 +254,7 @@ update msg model =
         ( GotGameMsg subMsg, Game subModel ) ->
             updateWith Game GotGameMsg (Game.update subMsg subModel)
         ( GotGameMsg _, _) -> noOp model
+        (ToggleDarkMode, _) -> (model, toggleDarkMode ())
 
 toggleNotifications : Model -> Bool -> (Model, Cmd Msg)
 toggleNotifications model bool =
@@ -373,8 +374,9 @@ header_ model =
     in
     header [class "flex flex-col container md:max-w-5xl relative"]
         [ span
-            [ class "surface-1 on-surface-variant-text letter absolute top-0 left-0 ml-4  filter drop-shadow" ]
-            [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ] ]
+            [ class "surface-1 on-surface-variant-text letter absolute top-0 left-0 ml-4  filter drop-shadow"
+            ]
+            [ span [ class "material-symbols-outlined md-18" ] [ text "menu" ] ]
         , span
             [ class "cursor-pointer surface-1 on-surface-variant-text letter absolute top-0 right-0 mr-4 filter drop-shadow"
             , onClick ShowNotifications]
@@ -444,10 +446,15 @@ onClickStopPropagation : msg -> Html.Attribute msg
 onClickStopPropagation msg =
     Html.Events.stopPropagationOn "click" <| Decode.succeed ( msg, True )
 
-footer_ : Maybe User -> Html msg
+footer_ : Maybe User -> Html Msg
 footer_ user =
     case user of
         Nothing -> text ""
         Just user_ ->
             div [ class "flex flex-col m-10 justify-center items-center"]
-                [ a [ Route.href Route.Logout ] [ text "Sign out" ]]
+                [ a [ Route.href Route.Logout ] [ text "Sign out" ]
+                , span [onClick ToggleDarkMode] [ text "Toggle theme"]
+                ]
+
+
+port toggleDarkMode : () -> Cmd msg
