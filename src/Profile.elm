@@ -225,7 +225,7 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser fr =
                 Nothing ->
                     [ friendButton, playButton ]
                 Just fr_ ->
-                    [ actionButton { icon = "person_remove", title = Just "Cancel", action = Just (toSelf (ConfirmUnfriend Nothing)), id_ = "remove", shy = False }
+                    [ actionButton { icon = "cancel", title = Just "Cancel", action = Just (toSelf (ConfirmUnfriend Nothing)), id_ = "remove", shy = False }
                     , actionButton { icon = "person_remove", title = Just "Remove", action = Just (toSelf (RemoveFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove", shy = False }
                     ]
 
