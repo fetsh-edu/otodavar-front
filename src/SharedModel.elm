@@ -6,6 +6,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Notifications exposing (Notification, Notifications)
 import OtoApi exposing (config)
+import Push exposing (Push)
 import RemoteData exposing (WebData)
 import RemoteData.Http
 import Url exposing (Url)
@@ -18,6 +19,7 @@ type alias SharedModel =
     , drawer : Bool
     , currentUrl : Url
     , apiUrl : Url
+    , push : Push
     , auth : Auth
     }
 
@@ -30,7 +32,7 @@ type Error
     | ErrInfoGet Http.Error
 
 guest : Nav.Key -> Url -> Url-> Url -> SharedModel
-guest key url_ currentUrl apiUrl = SharedModel key url_ False currentUrl apiUrl (Guest Nothing)
+guest key url_ currentUrl apiUrl = SharedModel key url_ False currentUrl apiUrl Push.NotAsked (Guest Nothing)
 
 
 bearer : SharedModel -> Maybe Bearer

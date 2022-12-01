@@ -17,6 +17,7 @@ import Notifications exposing (Notification, Notifications, onNotification)
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import OtoApi
 import Profile
+import Push
 import RemoteData exposing (WebData)
 import Route exposing (Route)
 import SharedModel exposing (Auth(..), SharedModel, logout)
@@ -45,6 +46,7 @@ subscriptions model =
                 , SharedModel.changes AuthEmerged (getSharedModel model)
                 , onNotification (GotNotificationsMsg << Notifications.GotNotification << Decode.decodeValue Notifications.decoder)
                 , Game.onGameMessageDecoded (GotGameMsg << Game.GotWordFromSocket)
+                , Push.onPushChangeDecoded (GotPushMsg << Push.GotPushChange)
                 ]
     in
     defSub
@@ -156,7 +158,9 @@ changeRouteTo maybeRoute model =
             Just Route.Logout ->
                 (model, SharedModel.logout)
             Just Route.Login ->
-                updateWith Login GotLoginMsg (Login.init session)
+                if (SharedModel.isGuest session)
+                then updateWith Login GotLoginMsg (Login.init session)
+                else (model, Navigation.replaceUrl (session.key) (Route.routeToString Route.Home))
             Just Route.Home ->
                 updateWith Home GotHomeMsg (Home.init session)
             Just (Route.Profile uid) ->
@@ -261,6 +265,17 @@ update msg model =
             ((model |> getSharedModel |> (\x -> { x | drawer = False } ) |> updateSharedModel) model, Cmd.none)
         (ShowDrawer, _) ->
             ((model |> getSharedModel |> (\x -> { x | drawer = True } ) |> updateSharedModel) model, Cmd.none)
+        (GotPushMsg (Push.GotPushChange push), _) ->
+            let
+                a = Debug.log "Push: " push
+                newModel = model |> updateSharedModel (model |> getSharedModel |> (\x -> { x | push = push } ))
+
+            in
+            ( newModel, push |> Push.toMsg |> Cmd.map GotPushMsg )
+        (GotPushMsg (Push.Subscribe), _) ->
+            ( model, Push.subscribePush () )
+        (GotPushMsg (Push.UnSubscribe), _) ->
+            ( model, Push.unsubscribePush () )
 
 toggleNotifications : Model -> Bool -> (Model, Cmd Msg)
 toggleNotifications model bool =
@@ -433,7 +448,12 @@ drawer model =
                     span
                         [ class "ml-3 flex-1 py-3 flex flex-col whitespace-nowrap"]
                         [ span [class "font-bold"] [ some |> User.info |> .name |> Name.toString |> text ]
-                        , a [ class "text-xs uppercase on-surface-variant-text", Route.href Route.Logout ] [ text "Sign Out" ]
+                        , a
+                            [ class "text-xs uppercase on-surface-variant-text"
+                            , onClick HideDrawer
+                            , Route.href Route.Logout
+                            ]
+                            [ text "Sign Out" ]
                         ]
                 Nothing ->
                     span
@@ -468,6 +488,13 @@ drawer model =
                     [ span [ class "material-symbols-outlined mr-4" ] [ text "dark_mode"]
                     , text "Toggle theme"
                     ]
+                ]
+            , div
+                [ class "border-t border-light-200 text-left pl-4 pt-3 pb-3 flex flex-col" ]
+                [ span [] [ text "Browser notifications" ]
+                , span [] [ model |> getSharedModel |> .push |> Push.toString |> text ]
+                , span [ onClick (GotPushMsg Push.Subscribe)] [ text "Subscribe" ]
+                , span [ onClick (GotPushMsg Push.UnSubscribe)] [ text "UnSubscribe" ]
                 ]
             ]
         ]

@@ -6,6 +6,7 @@ import Home
 import Login
 import Notifications
 import Profile
+import Push
 import RemoteData exposing (WebData)
 import SharedModel exposing (SharedModel)
 import Url exposing (Url)
@@ -23,6 +24,7 @@ type Msg
     | GotProfileMsg Profile.Msg
     | GotGameMsg Game.Msg
     | GotNotificationsMsg Notifications.Msg
+    | GotPushMsg Push.Msg
     | UserInfoReceived (WebData SimpleInfo)
     | HideNotifications
     | ShowNotifications

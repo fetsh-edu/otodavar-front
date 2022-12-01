@@ -66,129 +66,18 @@ var app = Elm.Main.init({flags: flags});
 app.ports.toggleDarkMode.subscribe(() => { toggleDarkMode() });
 
 
-
 // PWA STUFF
-//
-//const PwaApp = {};
-//PwaApp.applicationServerPublicKey = 'BJG6BHoYQJAAFGfjzR1O5TNIOZaJqrS5obFgZ6re__GH4oeli1Xg7q4JQAnJXLEqMCvhOx79KoMsKWDVNAx032g';
-//
-//function urlB64ToUint8Array(base64String) {
-//  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-//  const base64 = (base64String + padding)
-//    .replace(/\-/g, '+')
-//    .replace(/_/g, '/');
-//
-//  const rawData = window.atob(base64);
-//  const outputArray = new Uint8Array(rawData.length);
-//
-//  for (let i = 0; i < rawData.length; ++i) {
-//    outputArray[i] = rawData.charCodeAt(i);
-//  }
-//  return outputArray;
-//}
-//
-//
-//if ('serviceWorker' in navigator && 'PushManager' in window) {
-//  console.log('Service Worker and Push are supported');
-//
-//  navigator.serviceWorker.register('sw.js')
-//  .then(function(swReg) {
-//    console.log('Service Worker is registered', swReg);
-//
-//    PwaApp.swRegistration = swReg;
-//    initializeUI();
-//  })
-//  .catch(function(error) {
-//    console.error('Service Worker Error', error);
-//  });
-//} else {
-//  console.warn('Push messaging is not supported');
-//}
-//
-//
-//function initializeUI() {
-//  // Set the initial subscription value
-//  PwaApp.swRegistration.pushManager.getSubscription()
-//  .then(function(subscription) {
-//    PwaApp.isSubscribed = !(subscription === null);
-//
-//    if (PwaApp.isSubscribed) {
-//      console.log('User IS subscribed.');
-//    } else {
-//      console.log('User is NOT subscribed.');
-//    }
-//    toggleSubscription();
-//
-////    updateBtn();
-//  });
-//}
-//
-//
-//function toggleSubscription() {
-//    if (PwaApp.isSubscribed) {
-////      console.log("unsubscribing")
-////      unsubscribeUser();
-//    } else {
-//      console.log("subscribing")
-//      subscribeUser();
-//    }
-//}
-//
-//function subscribeUser() {
-//  const applicationServerKey = urlB64ToUint8Array(PwaApp.applicationServerPublicKey);
-//  PwaApp.swRegistration.pushManager.subscribe({
-//    userVisibleOnly: true,
-//    applicationServerKey: applicationServerKey
-//  })
-//  .then(function(subscription) {
-//    console.log('User is subscribed.');
-//
-//    updateSubscriptionOnServer(subscription);
-//
-//    PwaApp.isSubscribed = true;
-//
-////    updateBtn();
-//  })
-//  .catch(function(error) {
-//    console.error('Failed to subscribe the user: ', error);
-////    updateBtn();
-//  });
-//}
-//
-//
-//function unsubscribeUser() {
-//  PwaApp.swRegistration.pushManager.getSubscription()
-//  .then(function(subscription) {
-//    if (subscription) {
-//      return subscription.unsubscribe();
-//    }
-//  })
-//  .catch(function(error) {
-//    console.log('Error unsubscribing', error);
-//  })
-//  .then(function() {
-//    updateSubscriptionOnServer(null);
-//
-//    console.log('User is unsubscribed.');
-//    PwaApp.isSubscribed = false;
-//
-////    updateBtn();
-//  });
-//}
-//
-//
-//function updateSubscriptionOnServer(subscription) {
-//
-//  // TODO: Send subscription to application server
-//
-//  if (subscription) {
-//    console.log("Subscription", JSON.stringify(subscription));
-//  } else {
-//
-//  }
-//}
 
+import { PushApp } from "./push.js";
 
+PushApp.init()
+    .then((status) => { console.log(status) ; app.ports.onPushChange.send(status) } );
+
+const pushSubscribe = () => { PushApp.subscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
+const pushUnsubscribe = () => { PushApp.unsubscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
+
+app.ports.subscribePush.subscribe(pushSubscribe);
+app.ports.unsubscribePush.subscribe(pushUnsubscribe);
 
 // PWA STAFF
 
@@ -204,6 +93,7 @@ const Sockets = {
 const initConsumer = () => {
     let bearer = JSON.parse(localStorage.getItem(bearerKey));
     if (bearer === null) {
+
         console.log("No consumer for logged out.");
         if (Sockets.consumer) {
             if (Sockets.notificationsSub) {
@@ -216,6 +106,7 @@ const initConsumer = () => {
             }
         }
     } else {
+        console.log("Initializing new consumer");
         var host = apiUrl.replace(/^https:\/\//, '');
         Sockets.consumer = createConsumer("wss://" + host + "/cable", bearer.bearer.split(" ")[1]);
 //        var host = apiUrl.replace(/^https:\/\//, '').replace(/:[0-9]{4}$/, '');
