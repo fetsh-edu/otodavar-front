@@ -20,7 +20,7 @@ import Profile
 import Push
 import RemoteData exposing (WebData)
 import Route exposing (Route)
-import SharedModel exposing (Auth(..), SharedModel, logout)
+import SharedModel exposing (Auth(..), SharedModel)
 import Url exposing (Protocol(..), Url)
 import User.Avatar as Avatar
 import User.Name as Name
@@ -267,15 +267,20 @@ update msg model =
             ((model |> getSharedModel |> (\x -> { x | drawer = True } ) |> updateSharedModel) model, Cmd.none)
         (GotPushMsg (Push.GotPushChange push), _) ->
             let
-                a = Debug.log "Push: " push
-                newModel = model |> updateSharedModel (model |> getSharedModel |> SharedModel.setPush push )
-
+                newModel = model |> updateSharedModel (model |> getSharedModel |> SharedModel.setPush { state = push, buttonDisabled = False } )
+                newCommand = push |> Push.toCmd |> Cmd.map GotPushMsg
             in
-            ( newModel, push |> Push.toMsg |> Cmd.map GotPushMsg )
+            ( newModel
+            , newCommand
+            )
         (GotPushMsg (Push.Subscribe), _) ->
-            ( model, Push.subscribePush () )
+            ( model |> updateSharedModel (model |> getSharedModel |> SharedModel.disablePushButton )
+            , Push.subscribePush ()
+            )
         (GotPushMsg (Push.UnSubscribe), _) ->
-            ( model, Push.unsubscribePush () )
+            ( model |> updateSharedModel (model |> getSharedModel |> SharedModel.enablePushButton )
+            , Push.unsubscribePush ()
+            )
 
 toggleNotifications : Model -> Bool -> (Model, Cmd Msg)
 toggleNotifications model bool =
@@ -467,12 +472,18 @@ drawer model =
                 ]
         notifications =
             case (model |> getSharedModel |> .auth) of
-                LoggedIn u_ n_ p_ ->
+                LoggedIn _ _ p_ ->
                     let
+                        cursor =
+                            if p_.buttonDisabled
+                            then "cursor-default on-surface-variant-text"
+                            else "cursor-pointer"
                         subscribePush icon_ t_ =
                             span
-                                [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+                                [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2"
+                                , class cursor
                                 , onClick (GotPushMsg Push.Subscribe)
+                                , disabled p_.buttonDisabled
                                 ]
                                 [ span [ class "material-symbols-outlined mr-4" ] [ text icon_]
                                 , text t_
@@ -480,13 +491,15 @@ drawer model =
                         unsubscribePush t_ =
                             span
                                 [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+                                , class cursor
                                 , onClick (GotPushMsg Push.UnSubscribe)
+                                , disabled p_.buttonDisabled
                                 ]
                                 [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off"]
                                 , text t_
                                 ]
                         pushButton =
-                            case  p_ of
+                            case  p_.state of
                                 Push.NotAsked ->
                                     subscribePush "notification_add" "Turn on"
                                 Push.Unsubscribed ->

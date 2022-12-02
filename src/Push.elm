@@ -3,6 +3,14 @@ port module Push exposing (..)
 import Json.Decode as Decode
 import Json.Encode as Encode
 
+type alias Model =
+    { buttonDisabled : Bool
+    , state: Push
+    }
+
+init : Model
+init = Model False NotAsked
+
 type Push
     = NotAsked
     | NotSupported
@@ -22,8 +30,8 @@ decoder = Decode.string |> Decode.andThen (fromString >> Decode.succeed)
 encode : Push -> Encode.Value
 encode = toString >> Encode.string
 
-toMsg : Push -> Cmd Msg
-toMsg push =
+toCmd : Push -> Cmd Msg
+toCmd push =
     case push of
         NotAsked -> Cmd.none
         NotSupported -> Cmd.none
