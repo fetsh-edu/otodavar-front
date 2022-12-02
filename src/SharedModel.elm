@@ -19,12 +19,11 @@ type alias SharedModel =
     , drawer : Bool
     , currentUrl : Url
     , apiUrl : Url
-    , push : Push
     , auth : Auth
     }
 
 type Auth
-    = LoggedIn User Notifications
+    = LoggedIn User Notifications Push
     | Guest (Maybe Error)
 
 type Error
@@ -32,7 +31,7 @@ type Error
     | ErrInfoGet Http.Error
 
 guest : Nav.Key -> Url -> Url-> Url -> SharedModel
-guest key url_ currentUrl apiUrl = SharedModel key url_ False currentUrl apiUrl Push.NotAsked (Guest Nothing)
+guest key url_ currentUrl apiUrl = SharedModel key url_ False currentUrl apiUrl (Guest Nothing)
 
 
 bearer : SharedModel -> Maybe Bearer
@@ -47,42 +46,56 @@ url = .url
 notifications : SharedModel -> Maybe Notifications
 notifications session =
     case session.auth of
-        LoggedIn _ n -> Just n
+        LoggedIn _ n _ -> Just n
+        Guest _ -> Nothing
+
+push : SharedModel -> Maybe Push
+push sharedModel =
+    case sharedModel.auth of
+        LoggedIn _ _ p_ -> Just p_
         Guest _ -> Nothing
 
 setNotifications : WebData (List Notification) -> SharedModel -> SharedModel
 setNotifications n_ s_ =
     case s_.auth of
         Guest _ -> s_
-        LoggedIn user_ ns_ -> {s_ | auth = LoggedIn user_ { ns_ | items = n_} }
+        LoggedIn user_ ns_ _ -> {s_ | auth = LoggedIn user_ { ns_ | items = n_} Push.NotAsked }
+
+setPush : Push -> SharedModel -> SharedModel
+setPush p_ s_ =
+    case s_.auth of
+        Guest _ -> s_
+        LoggedIn u_ ns_ _ -> { s_ | auth = LoggedIn u_ ns_ p_ }
 
 updateNotifications : (Notifications -> Notifications)  -> SharedModel -> SharedModel
 updateNotifications f s_ =
     case s_.auth of
         Guest _ -> s_
-        LoggedIn user_ ns_ -> {s_ | auth = LoggedIn user_ (f ns_) }
+        LoggedIn user_ ns_ _ -> {s_ | auth = LoggedIn user_ (f ns_) Push.NotAsked }
+
+
 
 updateUserInfo : WebData SimpleInfo -> SharedModel -> SharedModel
 updateUserInfo userInfo oldModel =
     case oldModel.auth of
         Guest _ -> oldModel
-        LoggedIn user_ ns_ ->
+        LoggedIn user_ ns_ _ ->
             case userInfo of
                 RemoteData.Failure e -> { oldModel | auth = Guest (Just <| ErrInfoGet e) }
-                RemoteData.Success a -> { oldModel | auth = LoggedIn (User.updateInfo a user_) ns_ }
+                RemoteData.Success a -> { oldModel | auth = LoggedIn (User.updateInfo a user_) ns_ Push.NotAsked }
                 _ -> oldModel
 
 
 isGuest : SharedModel -> Bool
 isGuest sm =
     case sm.auth of
-        LoggedIn _ _ -> False
+        LoggedIn _ _ _ -> False
         _ -> True
 
 user : SharedModel -> Maybe User
 user sm =
     case sm.auth of
-        LoggedIn val _ ->
+        LoggedIn val _ _ ->
             Just val
         Guest _ ->
             Nothing
@@ -110,6 +123,8 @@ decode oldModel value =
                     LoggedIn
                         decodedViewer
                         (notifications oldModel |> Maybe.withDefault Notifications.initModel)
+                        (push oldModel |> Maybe.withDefault Push.NotAsked)
+
                 Ok Nothing ->
                     Guest Nothing
                 Err error ->

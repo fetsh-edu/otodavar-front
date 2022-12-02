@@ -55,8 +55,8 @@ fromString str =
         "error" -> Error "error"
         _ -> Error str
 
-resultToPush : Result Decode.Error Push -> Push
-resultToPush a =
+fromResult : Result Decode.Error Push -> Push
+fromResult a =
     case a of
         Ok value -> value
         Err error -> Error (Decode.errorToString error)
@@ -64,7 +64,7 @@ resultToPush a =
 
 onPushChangeDecoded : (Push -> msg) ->Sub msg
 onPushChangeDecoded toMsg_ =
-    onPushChange (Decode.decodeValue decoder >> resultToPush >> toMsg_)
+    onPushChange (Decode.decodeValue decoder >> fromResult >> toMsg_)
 
 port onPushChange : (Encode.Value -> msg) -> Sub msg
 

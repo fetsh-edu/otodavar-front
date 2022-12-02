@@ -84,7 +84,7 @@ view translator model =
 
                 WithSession sharedModel ->
                     case sharedModel.auth of
-                        SharedModel.LoggedIn u_ _ ->
+                        SharedModel.LoggedIn u_ _ _ ->
                             u_ |> User.info |> .name |> Name.toString |> (++) "You are logged in as " |> text |> container
                         SharedModel.Guest Nothing ->
                             div []

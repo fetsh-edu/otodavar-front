@@ -39,6 +39,7 @@ function toggleDarkMode() {
     }
     setDarkMode();
 }
+
 setDarkMode();
 
 
@@ -51,8 +52,6 @@ if (typeof process !== 'undefined') {
         }
     }
 }
-console.log(apiUrl)
-
 
 const flags = {
     bytes: rememberedBytes(),
@@ -70,8 +69,7 @@ app.ports.toggleDarkMode.subscribe(() => { toggleDarkMode() });
 
 import { PushApp } from "./push.js";
 
-PushApp.init()
-    .then((status) => { console.log(status) ; app.ports.onPushChange.send(status) } );
+PushApp.init().then((status) => { app.ports.onPushChange.send(status) } );
 
 const pushSubscribe = () => { PushApp.subscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
 const pushUnsubscribe = () => { PushApp.unsubscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
@@ -157,12 +155,6 @@ app.ports.storeSession.subscribe(function (val) {
     // https://stackoverflow.com/questions/779379/why-is-settimeoutfn-0-sometimes-useful
     setTimeout(function () { app.ports.onSessionChange.send(val); }, 0);
 });
-
-
-console.log(Sockets)
-console.log(Sockets.consumer)
-
-
 
 
 // Listen for localStorage changes

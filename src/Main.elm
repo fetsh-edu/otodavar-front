@@ -268,7 +268,7 @@ update msg model =
         (GotPushMsg (Push.GotPushChange push), _) ->
             let
                 a = Debug.log "Push: " push
-                newModel = model |> updateSharedModel (model |> getSharedModel |> (\x -> { x | push = push } ))
+                newModel = model |> updateSharedModel (model |> getSharedModel |> SharedModel.setPush push )
 
             in
             ( newModel, push |> Push.toMsg |> Cmd.map GotPushMsg )
@@ -465,6 +465,49 @@ drawer model =
                 [ avatar
                 , name
                 ]
+        notifications =
+            case (model |> getSharedModel |> .auth) of
+                LoggedIn u_ n_ p_ ->
+                    let
+                        subscribePush icon_ t_ =
+                            span
+                                [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+                                , onClick (GotPushMsg Push.Subscribe)
+                                ]
+                                [ span [ class "material-symbols-outlined mr-4" ] [ text icon_]
+                                , text t_
+                                ]
+                        unsubscribePush t_ =
+                            span
+                                [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+                                , onClick (GotPushMsg Push.UnSubscribe)
+                                ]
+                                [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off"]
+                                , text t_
+                                ]
+                        pushButton =
+                            case  p_ of
+                                Push.NotAsked ->
+                                    subscribePush "notification_add" "Turn on"
+                                Push.Unsubscribed ->
+                                    subscribePush "notification_add" "Turn on"
+                                Push.Denied ->
+                                    subscribePush "notifications_paused" "Blocked for this site"
+                                Push.Error string ->
+                                    subscribePush "notification_important" "Error"
+                                Push.NotSupported ->
+                                    text ""
+                                Push.Subscribed ->
+                                    unsubscribePush "Turn off"
+
+                    in
+                    div
+                        [ class "border-t border-light-200 text-left pt-3 pb-3 flex flex-col" ]
+                        [ span [ class "pl-4 mb-2 on-surface-variant-text text-sm" ] [ text "Notifications" ]
+                        , pushButton
+                        ]
+                Guest _ ->
+                    text ""
     in
     div
         [ class "fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 py-0 px-0"
@@ -489,13 +532,7 @@ drawer model =
                     , text "Toggle theme"
                     ]
                 ]
-            , div
-                [ class "border-t border-light-200 text-left pl-4 pt-3 pb-3 flex flex-col" ]
-                [ span [] [ text "Browser notifications" ]
-                , span [] [ model |> getSharedModel |> .push |> Push.toString |> text ]
-                , span [ onClick (GotPushMsg Push.Subscribe)] [ text "Subscribe" ]
-                , span [ onClick (GotPushMsg Push.UnSubscribe)] [ text "UnSubscribe" ]
-                ]
+            , notifications
             ]
         ]
 
