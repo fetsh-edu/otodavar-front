@@ -1,12 +1,17 @@
 const applicationServerPublicKey = 'BJG6BHoYQJAAFGfjzR1O5TNIOZaJqrS5obFgZ6re__GH4oeli1Xg7q4JQAnJXLEqMCvhOx79KoMsKWDVNAx032g';
 const applicationServerKeyEncoded = urlB64ToUint8Array(applicationServerPublicKey);
 
-const DENIED        = "denied";
-const SUBSCRIBED    = "subscribed";
-const UNSUBSCRIBED  = "unsubscribed";
-const ERROR         = "error";
-const NOT_SUPPORTED = "not_supported";
-const NOT_ASKED     = "not_asked";
+const DENIED        = { status: "denied" };
+const SUBSCRIBED    = (subscription) => { return { status: "subscribed", payload: JSON.stringify(subscription) } };
+const UNSUBSCRIBED  = (subscription) => { return { status: "unsubscribed", payload: JSON.stringify(subscription) } };
+const ERROR         = { status: "error" };
+const ERROR_WORKER  = { status: "error", error: "worker" };
+const ERROR_GET_SUB = { status: "error", error: "get_subscription" };
+const ERROR_GET_REG = { status: "error", error: "get_registration" };
+const ERROR_SUB     = { status: "error", error: "subscribe" };
+const ERROR_UNSUB   = { status: "error", error: "unsubscribe" };
+const NOT_SUPPORTED = { status: "not_supported" };
+const NOT_ASKED     = { status: "not_asked" };
 
 
 const checkDenied = () => { return new Promise(function(myResolve, myReject)  {
@@ -28,7 +33,7 @@ const checkSupport = () => { return new Promise(function(myResolve, myReject)  {
 const registerWorker = () => { return new Promise(function(myResolve, myReject)  {
     navigator.serviceWorker.register('/sw.js').then(
         (registration) => myResolve(registration),
-        (error) => myReject(ERROR)
+        (error) => myReject(ERROR_WORKER)
     )
 })}
 
@@ -38,16 +43,17 @@ const getSubscription = (registration) => {
     return new Promise(function(myResolve, myReject)  {
         registration.pushManager.getSubscription().then(
             (subscription) => myResolve(subscription),
-            (error) => myReject(ERROR)
+            (error) => myReject(ERROR_GET_SUB)
         )
     })
 }
 
 const subscriptionToStatus = (sub) => {
      if (!(sub === null)) {
-         return SUBSCRIBED
+        console.log("Subscription", sub)
+        return SUBSCRIBED(sub)
      } else {
-         return UNSUBSCRIBED
+         return UNSUBSCRIBED(sub)
      }
 }
 
@@ -59,19 +65,22 @@ const getRegistration = () => { return new Promise(function(myResolve, myReject)
             .then(registerWorker)
             .then( (registration) => saveRegistration(registration) )
             .then( (registration) => { myResolve(registration) } )
-            .catch( (e) => myReject(ERROR) )
+            .catch( (e) => myReject(ERROR_GET_REG) )
     }
 }) }
 
 const subscribe = (registration) => {
     return new Promise(function(myResolve, myReject) {
-        registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: applicationServerKeyEncoded
-        })
-        .then(
-            (subscription) => myResolve(subscription),
-            (error) => myReject(ERROR)
+        checkDenied().then(
+            () => registration.pushManager.subscribe({
+                      userVisibleOnly: true,
+                      applicationServerKey: applicationServerKeyEncoded
+                  })
+                  .then(
+                      (subscription) => myResolve(subscription),
+                      (error) => myReject(ERROR_SUB)
+                  ),
+            (e) => myReject(e)
         )
     });
 };
@@ -79,11 +88,11 @@ const subscribe = (registration) => {
 const unsubscribe = (subscription) => new Promise(function(myResolve, myReject) {
     if (subscription) {
         subscription.unsubscribe().then(
-            () => myResolve(),
-            (e) => myReject(ERROR)
+            () => myResolve(subscription),
+            (e) => myReject(ERROR_UNSUB)
         )
     } else {
-        myResolve()
+        myResolve(null)
     }
 });
 
@@ -115,7 +124,7 @@ export const PushApp = {
         return getRegistration()
             .then( (registration) => getSubscription(registration) )
             .then( (subscription) => unsubscribe(subscription) )
-            .then( () => { PushApp.status = subscriptionToStatus(null) } )
+            .then( (subscription) => { PushApp.status = UNSUBSCRIBED(subscription) } )
             .catch( (val) => PushApp.status = val )
             .then(() => PushApp.getStatus())
     }

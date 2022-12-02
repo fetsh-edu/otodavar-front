@@ -31,6 +31,7 @@ routes url__ =
     , word =
         { create = url_ ("/api/v1/words") Nothing
         }
+    , push = url_ ("/api/v1/users/push") Nothing
     }
 
 url : Url -> String -> Maybe String -> String

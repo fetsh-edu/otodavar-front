@@ -267,8 +267,9 @@ update msg model =
             ((model |> getSharedModel |> (\x -> { x | drawer = True } ) |> updateSharedModel) model, Cmd.none)
         (GotPushMsg (Push.GotPushChange push), _) ->
             let
-                newModel = model |> updateSharedModel (model |> getSharedModel |> SharedModel.setPush { state = push, buttonDisabled = False } )
-                newCommand = push |> Push.toCmd |> Cmd.map GotPushMsg
+                sharedModel = model |> getSharedModel
+                newModel = model |> updateSharedModel (sharedModel |> SharedModel.setPush { state = push, buttonDisabled = False } )
+                newCommand = push |> Push.toCmd (sharedModel.apiUrl) (SharedModel.bearer sharedModel) |> Cmd.map GotPushMsg
             in
             ( newModel
             , newCommand
@@ -281,6 +282,14 @@ update msg model =
             ( model |> updateSharedModel (model |> getSharedModel |> SharedModel.enablePushButton )
             , Push.unsubscribePush ()
             )
+        (GotPushMsg (Push.HandlePushResponse resp), _) ->
+            case resp of
+                RemoteData.Failure e ->
+                    ( model |> updateSharedModel (model |> getSharedModel |> SharedModel.setPush { state = Push.Error "server", buttonDisabled = False } )
+                    , Cmd.none
+                    )
+                _ -> ( model, Cmd.none )
+
 
 toggleNotifications : Model -> Bool -> (Model, Cmd Msg)
 toggleNotifications model bool =
@@ -502,15 +511,15 @@ drawer model =
                             case  p_.state of
                                 Push.NotAsked ->
                                     subscribePush "notification_add" "Turn on"
-                                Push.Unsubscribed ->
+                                Push.Unsubscribed _->
                                     subscribePush "notification_add" "Turn on"
                                 Push.Denied ->
                                     subscribePush "notifications_paused" "Blocked for this site"
-                                Push.Error string ->
+                                Push.Error _ ->
                                     subscribePush "notification_important" "Error"
                                 Push.NotSupported ->
                                     text ""
-                                Push.Subscribed ->
+                                Push.Subscribed _ ->
                                     unsubscribePush "Turn off"
 
                     in
