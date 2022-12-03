@@ -234,14 +234,14 @@ successContent translator me guessText guessData sGame =
                     case state |> Game.payload |> .status of
                         Status.Closed ->
                             div
-                                [ class "fixed bottom-0 right-0 left-0 container w-full" ]
+                                [ class "sticky bottom-0 right-0 left-0 container w-full" ]
                                 [ span
                                     [ class "justify-center flex w-full" ]
-                                    [ span [ class "border-surface border-4 surface rounded m-1 mb-1"] [ button
-                                        [ class "cursor-pointer font-bold inline-block flex items-center leading-normal uppercase text-xs rounded outline-none focus:outline-none filter drop-shadow primary on-primary-text px-4 py-2 m-0"
+                                    [ span [ class "border-surface border-4 surface rounded m-1 mb-2"] [ button
+                                        [ class "cursor-pointer font-bold inline-block flex items-center leading-normal uppercase text-md rounded outline-none focus:outline-none filter drop-shadow primary on-primary-text px-4 py-2 m-0"
                                         , playAgainAction
                                         ]
-                                        [ span [ class "material-symbols-outlined md-18 mr-2" ][ text "sports_esports" ]
+                                        [ span [ class "material-symbols-outlined text-md mr-2" ][ text "sports_esports" ]
                                         , text "Play again"
                                         ]
                                     ]]
@@ -250,12 +250,12 @@ successContent translator me guessText guessData sGame =
             in
             [ View.Helper.container
                 [ div
-                    [ class "secondary-container on-secondary-container-text rounded-lg relative mb-4" ]
+                    [ class "secondary-container on-secondary-container-text rounded-lg relative mb-2" ]
                     [ currentGuess translator guessText state guessData
                     , oldGuesses state
                     ]
+                , playAgainButton
                 ]
-            , playAgainButton
             ]
 
 
