@@ -143,6 +143,7 @@ submitGuess session guess game =
 
 type alias Translator msg =
     { toSelf : Msg -> msg
+    , onGameStart : Maybe Uid -> msg
     }
 
 view : Translator msg -> Model -> Document msg
@@ -213,6 +214,31 @@ successContent translator me guessText guessData sGame =
     case sGame of
         WrongState otoGame -> [View.Helper.loadingContainer "Game is in some wrong state. It shouldn't be possible. If you can, send this url to developer." ]
         RightState state ->
+            let
+                playAgainAction =
+                    case state |> Game.opponent of
+                        Just opponent ->
+                            onClick <| translator.onGameStart <| Just <| opponent.uid
+                        Nothing ->
+                            class ""
+                playAgainButton =
+                    case state |> Game.payload |> .status of
+                        Status.Closed ->
+                            div
+                                [ class "fixed bottom-0 container md:max-w-5xl px-4" ]
+                                [ span
+                                    [ class "justify-center flex w-full" ]
+                                    [ button
+                                        [ class "cursor-pointer font-bold inline-block flex items-center leading-normal uppercase text-xs rounded outline-none focus:outline-none filter drop-shadow primary on-primary-text px-4 py-2 m-1 mb-1"
+                                        , playAgainAction
+                                        ]
+                                        [ span [ class "material-symbols-outlined md-18 mr-2" ][ text "sports_esports" ]
+                                        , text "Play again"
+                                        ]
+                                    ]
+                                ]
+                        Status.Open -> text ""
+            in
             [ View.Helper.container
                 [ div
                     [ class "secondary-container on-secondary-container-text rounded-lg relative mb-4" ]
@@ -220,6 +246,7 @@ successContent translator me guessText guessData sGame =
                     , oldGuesses state
                     ]
                 ]
+            , playAgainButton
             ]
 
 
@@ -264,27 +291,6 @@ currentGuess translator guessText sGame guessData =
                         [ class "surface-2 on-surface-text rounded-full py-3 px-4 text-2xl tracking-tight font-bold"]
                         [ span [ class "material-symbols-outlined font-bold text-3xl" ] [ text "done_all"]]
                         ]
-            else text ""
-        winBubble_ =
-            if (Game.payload sGame |> .status) == Status.Closed
-            then
-                div [ class "flex justify-center items-center"]
-                    [ div [ class "warp h-32 top-0 text-md" ]
-                        [ span
-                            [ id "warp-label", class "warp__placeholder" ]
-                            [ text "sababa" ]
-                        , span
-                            [ class "presentation" ]
-                            [ span [ class "warp__0 px-2 rounded-lg surface" ] [text "s"]
-                            , span [ class "warp__1 px-2 rounded-lg surface" ] [text "a"]
-                            , span [ class "warp__2 px-2 rounded-lg surface" ] [text "b"]
-                            , span [ class "warp__3 px-2 rounded-lg surface" ] [text "a"]
-                            , span [ class "warp__4 px-2 rounded-lg surface" ] [text "b"]
-                            , span [ class "warp__5 px-2 rounded-lg surface" ] [text "a"]
-                            , span [ class "warp__6 px-2 rounded-lg surface" ] [text "!"]
-                            ]
-                        ]
-                    ]
             else text ""
 
         speechBubble =

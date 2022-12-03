@@ -376,7 +376,7 @@ view model =
         Home subModel ->    Home.view {toSelf = GotHomeMsg, onRandomLaunch = LaunchGame} subModel |> mapOver
         Login subModel ->   Login.view { toSelf = GotLoginMsg } subModel |> mapOver
         Profile subModel -> Profile.view  { toSelf = GotProfileMsg, onGameStart = LaunchGame } subModel |> mapOver
-        Game subModel ->    Game.view { toSelf = GotGameMsg } subModel |> mapOver
+        Game subModel ->    Game.view { toSelf = GotGameMsg, onGameStart = LaunchGame } subModel |> mapOver
 
 
 header_ : Model -> Html Msg

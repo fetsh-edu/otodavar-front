@@ -28,6 +28,12 @@ payload state =
         Mine _ _ p_ -> p_
         Others _ _ p_ -> p_
 
+opponent : State -> Maybe RightPlayer
+opponent state =
+    case state of
+        Mine _ p_ _ -> p_
+        Others _ p_ _ -> p_
+
 uid : Game -> Uid
 uid game =
     case game of
