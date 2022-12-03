@@ -225,17 +225,17 @@ successContent translator me guessText guessData sGame =
                     case state |> Game.payload |> .status of
                         Status.Closed ->
                             div
-                                [ class "fixed bottom-0 container md:max-w-5xl px-4" ]
+                                [ class "fixed bottom-0 right-0 left-0 container w-full" ]
                                 [ span
                                     [ class "justify-center flex w-full" ]
-                                    [ button
-                                        [ class "cursor-pointer font-bold inline-block flex items-center leading-normal uppercase text-xs rounded outline-none focus:outline-none filter drop-shadow primary on-primary-text px-4 py-2 m-1 mb-1"
+                                    [ span [ class "border-surface border-4 surface rounded m-1 mb-1"] [ button
+                                        [ class "cursor-pointer font-bold inline-block flex items-center leading-normal uppercase text-xs rounded outline-none focus:outline-none filter drop-shadow primary on-primary-text px-4 py-2 m-0"
                                         , playAgainAction
                                         ]
                                         [ span [ class "material-symbols-outlined md-18 mr-2" ][ text "sports_esports" ]
                                         , text "Play again"
                                         ]
-                                    ]
+                                    ]]
                                 ]
                         Status.Open -> text ""
             in
