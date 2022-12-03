@@ -1,6 +1,7 @@
 port module Game exposing (..)
 
 import Browser exposing (Document)
+import Browser.Dom as Dom
 import Browser.Navigation as Navigation
 import Game.GameStatus as Status
 import Game.OtoGame as OtoGame exposing (OtoGame)
@@ -9,7 +10,7 @@ import Game.Round as Round exposing (Round(..))
 import Game.Word as Word exposing (Word)
 import Helpers exposing (maybeFilter, onEnter)
 import Html exposing (Html, a, button, div, input, p, span, text)
-import Html.Attributes exposing (class, disabled, id, placeholder, style, value)
+import Html.Attributes exposing (autocomplete, autofocus, class, disabled, id, placeholder, style, value)
 import Html.Events exposing (onClick, onInput)
 import Http exposing (Error(..))
 import Json.Decode as Decode exposing (Decoder)
@@ -19,6 +20,7 @@ import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Route
 import SharedModel exposing (SharedModel)
+import Task
 import User.Avatar as Avatar
 import User.Bearer as Bearer
 import User.Name as Name
@@ -39,6 +41,7 @@ type Msg
     | SubmitGuess
     | OnGuessResponse (WebData Game)
     | GotWordFromSocket (Result Decode.Error Word)
+    | NoOp
 
 initModel : SharedModel -> Model
 initModel = Model >> (\x -> x Loading "" NotAsked)
@@ -73,6 +76,7 @@ update msg model =
                     then Navigation.pushUrl (model |> toSession |> .key) (Route.routeToString gR)
                     else Cmd.none
                 ) ) |> Maybe.withDefault Cmd.none
+                , focusOnInput
                 ]
             )
         OnGuessChange str ->
@@ -84,15 +88,20 @@ update msg model =
                 _ ->
                     (model, Cmd.none)
         OnGuessResponse ((Success s) as webData) ->
-            ( { model | game = webData, guessWebData = NotAsked, guess = "" }, Cmd.none)
+            ( { model | game = webData, guessWebData = NotAsked, guess = "" }, focusOnInput)
         OnGuessResponse webData ->
-            ( { model | guessWebData = webData}, Cmd.none)
+            ( { model | guessWebData = webData}, focusOnInput)
         GotWordFromSocket (Ok word) ->
             if model |> toSession |> SharedModel.user |> Maybe.map User.info |> Maybe.map (\x -> x.uid /= word.player) |> Maybe.withDefault False
             then ( model, model.game |> RemoteData.map (Game.uid >> get (model.session)) |> RemoteData.withDefault Cmd.none )
             else ( model, Cmd.none )
         GotWordFromSocket (Err e) ->
             (model, Cmd.none)
+        NoOp -> (model, Cmd.none)
+
+
+focusOnInput : Cmd Msg
+focusOnInput = Task.attempt (\_ -> NoOp) (Dom.focus "word-input")
 
 launchCmd : SharedModel -> Maybe Uid -> Cmd Msg
 launchCmd session maybeUid =
@@ -392,6 +401,9 @@ bubbleInput translator value_ =
     in
     [ input
         [ onInput (translator.toSelf << OnGuessChange)
+        , autofocus True
+        , id "word-input"
+        , autocomplete False
         , onEnter (translator.toSelf SubmitGuess)
         , class "flex-grow border-0 shy bg-transparent"
         , style "appearance" "none"
