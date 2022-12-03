@@ -178,10 +178,17 @@ view sGame =
                 words =
                     case p_.question of
                         Just (Round.Complete a b) ->
-                            span [ class "divide-y divide-light mr-2 flex flex-col text-right font-bold on-surface-variant-text uppercase text-sm overflow-hidden whitespace-nowrap"]
-                                [ span [class "py-1"] [ text (a.word)]
-                                , span [class "py-1"] [ text (b.word)]
-                                ]
+                            case p_.status of
+                                Open ->
+                                    span [ class "divide-y divide-light mr-2 flex flex-col text-right font-bold on-surface-variant-text uppercase text-sm overflow-hidden whitespace-nowrap"]
+                                        [ span [class "py-1"] [ text (a.word)]
+                                        , span [class "py-1"] [ text (b.word)]
+                                        ]
+                                Closed ->
+                                    span [ class "mr-2 flex items-center text-right on-surface-variant-text overflow-hidden whitespace-nowrap"]
+                                        [ span [ class "text-base mr-1 material-symbols-outlined opacity-40" ] [ text "done_all"]
+                                        , span [class "py-1 font-bold uppercase text-sm  font-bold"] [ text (a.word)]
+                                        ]
                         _ -> text ""
             in
             gameWidget p_.uid (avatar picture) partnerRound words

@@ -515,8 +515,8 @@ drawer model =
                                     subscribePush "notification_add" "Turn on"
                                 Push.Denied ->
                                     subscribePush "notifications_paused" "Blocked for this site"
-                                Push.Error _ ->
-                                    subscribePush "notification_important" "Error"
+                                Push.Error a ->
+                                    subscribePush "notification_important" ("Error" )
                                 Push.NotSupported ->
                                     text ""
                                 Push.Subscribed _ ->

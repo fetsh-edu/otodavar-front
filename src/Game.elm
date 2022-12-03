@@ -215,7 +215,7 @@ successContent translator me guessText guessData sGame =
         RightState state ->
             [ View.Helper.container
                 [ div
-                    [ class "secondary-container on-secondary-container-text rounded-lg relative" ]
+                    [ class "secondary-container on-secondary-container-text rounded-lg relative mb-4" ]
                     [ currentGuess translator guessText state guessData
                     , oldGuesses state
                     ]

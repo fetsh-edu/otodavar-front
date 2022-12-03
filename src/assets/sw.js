@@ -13,8 +13,29 @@ self.addEventListener('push', function(event) {
     }
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
-});
+
+    event.waitUntil(self.registration.showNotification(title, options));
+//    event.waitUntil(
+//        clients.matchAll({ type: "window"})
+//            .then(
+//                (clientList) => {
+//                    for (const client of clientList) {
+//                        if (client.visibilityState === "visible") {
+//                            return true;
+//                        }
+//                    }
+//                    return false;
+//                }
+//            ).then(
+//                (visible) => {
+//                    if (visible) {
+//                    } else {
+//                        self.registration.showNotification(title, options)
+//                    }
+//                }
+//            )
+//    )
+})
 
 self.addEventListener('notificationclick', function(event) {
     console.log('[Service Worker] Notification click Received.');
