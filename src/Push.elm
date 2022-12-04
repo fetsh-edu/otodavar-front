@@ -1,22 +1,17 @@
 port module Push exposing (..)
---
---import Json.Decode as Decode exposing (Error)
+
+import Json.Decode as Decode
 import Json.Encode as Encode
---import OtoApi
---import PushPermission exposing (Permission)
---import RemoteData exposing (WebData)
---import RemoteData.Http
---import SharedModel
---import Url exposing (Url)
---import User.Bearer as Bearer exposing (Bearer)
---
---type Push
---    = NotAsked
---    | NotSupported
---    | Error String
---    | Denied
---    | Subscribed String
---    | Unsubscribed (Maybe String)
+
+port subscribePush : () -> Cmd msg
+port unsubscribePush : () -> Cmd msg
+port onPushChange : (Encode.Value -> msg) -> Sub msg
+
+type Push
+    = NotAsked
+    | Error String
+    | Subscribed String
+    | Unsubscribed (Maybe String)
 --
 --
 --
@@ -53,18 +48,16 @@ import Json.Encode as Encode
 --
 --
 --
---decoder : Decode.Decoder Push
---decoder =
---    Decode.field "status" Decode.string
---        |> Decode.andThen (\str ->
---            case str of
---                "not_supported" -> Decode.succeed NotSupported
---                "denied" -> Decode.succeed Denied
---                "unsubscribed" -> Decode.map Unsubscribed (Decode.field "payload" (Decode.nullable Decode.string))
---                "subscribed" -> Decode.map Subscribed (Decode.field "payload" Decode.string)
---                "error" -> Decode.map Error (Decode.field "error" Decode.string)
---                _ -> Decode.succeed <| Error str
---        )
+decoder : Decode.Decoder Push
+decoder =
+    Decode.field "status" Decode.string
+        |> Decode.andThen (\str ->
+            case str of
+                "unsubscribed" -> Decode.map Unsubscribed (Decode.field "payload" (Decode.nullable Decode.string))
+                "subscribed" -> Decode.map Subscribed (Decode.field "payload" Decode.string)
+                "error" -> Decode.map Error (Decode.field "error" Decode.string)
+                _ -> Decode.succeed <| Error str
+        )
 --
 --
 --save : Url -> Maybe Bearer -> Push -> Cmd Msg
@@ -87,46 +80,26 @@ import Json.Encode as Encode
 --    maybeBearer |> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 --
 --
---encode : Push -> Encode.Value
---encode push =
---    case push of
---        NotSupported -> unSubValue Nothing
---        Error string -> unSubValue Nothing
---        Denied -> unSubValue Nothing
---        Subscribed sub -> subValue sub
---        Unsubscribed sub -> unSubValue sub
---        NotAsked -> unSubValue Nothing
---
---subValue : String -> Encode.Value
---subValue str = Encode.object [ ( "subscription", Encode.string str ) ]
---
---unSubValue : Maybe String -> Encode.Value
---unSubValue str =
---    case str of
---        Nothing -> Encode.object [ ( "subscription", Encode.null ) ]
---        Just something -> subValue something
---
---
---toCmd : Url -> Maybe Bearer -> Push -> Cmd Msg
---toCmd url maybeBearer push =
---    case push of
---        NotAsked -> Cmd.none
---        NotSupported -> Cmd.none
---        _ -> save url maybeBearer push
---
---
---fromResult : Result Decode.Error Push -> Push
---fromResult a =
---    case a of
---        Ok value -> value
---        Err error -> Error (Decode.errorToString error)
---
---
---onPushChangeDecoded : (Push -> msg) -> Sub msg
---onPushChangeDecoded toMsg_ =
---    onPushChange (Decode.decodeValue decoder >> fromResult >> toMsg_)
---
-port onPushChange : (Encode.Value -> msg) -> Sub msg
+encode : Push -> Encode.Value
+encode push =
+    case push of
+        Error _ -> unSubValue Nothing
+        Subscribed sub -> subValue sub
+        Unsubscribed sub -> unSubValue sub
+        NotAsked -> unSubValue Nothing
 
-port subscribePush : () -> Cmd msg
-port unsubscribePush : () -> Cmd msg
+subValue : String -> Encode.Value
+subValue str = Encode.object [ ( "subscription", Encode.string str ) ]
+
+unSubValue : Maybe String -> Encode.Value
+unSubValue str =
+    case str of
+        Nothing -> Encode.object [ ( "subscription", Encode.null ) ]
+        Just something -> subValue something
+
+fromResult : Result Decode.Error Push -> Push
+fromResult a =
+    case a of
+        Ok value -> value
+        Err error -> Error (Decode.errorToString error)
+

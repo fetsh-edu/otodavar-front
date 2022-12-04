@@ -4,6 +4,7 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 
 port receivedPermission : (Encode.Value -> msg) -> Sub msg
+port requestPermission : () -> Cmd msg
 
 
 type Permission
@@ -11,6 +12,8 @@ type Permission
     | Denied
     | Default
     | NotAsked
+    | NotSupported
+    | Error String
 
 toString : Permission -> String
 toString perm =
@@ -19,22 +22,20 @@ toString perm =
         Denied -> "denied"
         Default -> "default"
         NotAsked -> "not_asked"
+        NotSupported -> "not_supported"
+        Error _ -> "error"
 
 
-fromString : String -> Result String Permission
+
+fromString : String -> Permission
 fromString str =
     case str of
-        "granted" -> Ok Granted
-        "denied" -> Ok Denied
-        "default" -> Ok Default
-        other -> Err other
+        "granted" -> Granted
+        "denied" -> Denied
+        "default" -> Default
+        "not_supported" -> NotSupported
+        other -> Error other
 
 decoder : Decode.Decoder Permission
 decoder =
-    Decode.string
-        |> Decode.andThen
-            (\str ->
-                case fromString str of
-                    Ok value -> Decode.succeed value
-                    Err error -> Decode.fail error
-            )
+    Decode.string |> Decode.andThen (fromString >> Decode.succeed)

@@ -1,10 +1,10 @@
 port module Notifications exposing (..)
 
-import Html exposing (Html, a, p, span, text)
+import Html exposing (Html, a, span, text)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
 import Iso8601
-import Json.Decode as Decode exposing (Decoder, Error, list)
+import Json.Decode as Decode exposing (Decoder, Error)
 import Json.Encode as Encode exposing (Value)
 import OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
@@ -14,7 +14,7 @@ import Url exposing (Url)
 import User.Bearer as Bearer exposing (Bearer)
 import Time
 import User.Name exposing (Name(..))
-import User.Uid as Uid exposing (Uid(..))
+import User.Uid exposing (Uid(..))
 
 type alias Notifications =
     { shown : Bool

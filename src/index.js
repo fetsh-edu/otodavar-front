@@ -69,14 +69,31 @@ app.ports.toggleDarkMode.subscribe(() => { toggleDarkMode() });
 
 import { PushApp } from "./push.js";
 
-app.ports.receivedPermission.send( PushApp.getPermission() )
+// Send initial permission status
+let permission = PushApp.getPermission()
+console.log("Initial permission", permission)
+app.ports.receivedPermission.send( permission )
+
+if (permission == "granted") {
+    PushApp.getSubscription().then((subscription) => { app.ports.onPushChange.send(subscription) } )
+}
+
+// Ask for permission and send it back;
+app.ports.requestPermission.subscribe(() => {
+    PushApp.requestPermission().then((permission) => app.ports.receivedPermission.send(permission))
+})
+app.ports.subscribePush.subscribe(() => { PushApp.subscribe().then((subscription) => { app.ports.onPushChange.send(subscription) })});
+app.ports.unsubscribePush.subscribe(() => { PushApp.unsubscribe().then((subscription) => { app.ports.onPushChange.send(subscription) })});
+
+
+//app.ports.subscribePush.subscribe(() => {
+//    PushApp.subscribe().then((status) => { app.ports.onPushChange.send(status) } )
+//});
 
 //PushApp.init().then((status) => { app.ports.onPushChange.send(status) } );
 //
-//const pushSubscribe = () => { PushApp.subscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
 //const pushUnsubscribe = () => { PushApp.unsubscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
 //
-//app.ports.subscribePush.subscribe(pushSubscribe);
 //app.ports.unsubscribePush.subscribe(pushUnsubscribe);
 
 // PWA STAFF

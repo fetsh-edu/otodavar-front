@@ -1,11 +1,14 @@
 module ProfileEdit exposing (..)
 
 import Browser exposing (Document)
-import Html exposing (button, div, img, input, span, text)
+import Html exposing (Html, button, div, img, input, span, text)
 import Html.Attributes exposing (attribute, autofocus, class, src, style, value)
 import Html.Events exposing (onClick, onInput)
 import Json.Encode as Encode
+import Notifications.BrowserNotifications exposing (BrowserNotifications)
+import Notifications.PushPermission as PushPermission
 import OtoApi
+import Push exposing (Push)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import SharedModel exposing (SharedModel, updateUserInfo)
@@ -45,6 +48,7 @@ type Msg
 
 type alias Translator msg =
     { toSelf : Msg -> msg
+    , toParent : Notifications.BrowserNotifications.Msg -> msg
     }
 
 
@@ -55,7 +59,7 @@ view translator model =
     , body =
         case model |> .sharedModel |> SharedModel.user of
             Nothing -> [ text "SHOULDN'T BE POSSIBLE" ]
-            Just me -> [ successView translator (User.info me) model.newName model.logoutAsked ]
+            Just me -> [ successView translator (User.info me) model.newName model.logoutAsked model.sharedModel ]
     }
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -92,8 +96,8 @@ save sharedModel name =
     in
     sharedModel |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
-successView : Translator msg -> { a | avatar : Avatar.Avatar, email : Email.Email } -> String -> Bool  -> Html.Html msg
-successView translator me newName logoutAsked =
+successView : Translator msg -> { a | avatar : Avatar.Avatar, email : Email.Email } -> String -> Bool -> SharedModel -> Html.Html msg
+successView translator me newName logoutAsked sharedModel =
     div [ class "profile-page container mx-auto px-4 mt-8 md:mt-28 md:max-w-5xl"]
         [ div
             [ class "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text" ]
@@ -176,5 +180,117 @@ successView translator me newName logoutAsked =
                             ]
                 ]
             ]
-        , View.Helper.section "Notifications" "secondary-container on-secondary-container-text uppercase text-center" [text "lskdjfkldjs"]
+        , View.Helper.section "Notifications" "secondary-container on-secondary-container-text uppercase text-center"
+            [ div
+                [ class "pt-2 px-2 pt-4 pb-2"]
+                [ div [ class "text-sm on-surface-variant-text pb-2"] [ text "System notifications"]
+                , div [] [ systemNotifications translator (SharedModel.browserNotifications sharedModel) ]
+                ]
+            , div [class "mt-2 pt-2 px-2"] [ text "Telegram notifications" ]
+            ]
         ]
+
+systemNotifications : Translator msg -> Maybe BrowserNotifications -> Html msg
+systemNotifications translator some =
+    case some of
+        Just browserNotifications ->
+            case browserNotifications.permission of
+                Ok permission ->
+                    div []
+                        [ case permission of
+                            PushPermission.Granted ->
+                                div
+                                    []
+                                    [ div [ class "pt-2 pb-4 text-sm" ] [text "Permission to receive notifications is granted."]
+                                    , div [] [subscribeButton browserNotifications.push translator]
+                                    ]
+                            PushPermission.Denied -> span [ class "pt-2 pb-4 text-sm" ] [ text "Permission to receive notifications is denied. There is nothing we can do at this stage. You need to grant notifications permission somewhere in your browser."]
+                            PushPermission.Default ->
+                                span
+                                    [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2 cursor-pointer"
+                                    , onClick (translator.toParent Notifications.BrowserNotifications.RequestPermission)
+                                    ]
+                                    [ span [ class "material-symbols-outlined mr-4" ] [ text "chat_bubble" ]
+                                    , text "Ask for permission"
+                                    ]
+                            PushPermission.NotAsked ->
+                                span
+                                    [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2 cursor-pointer"
+                                    , onClick (translator.toParent Notifications.BrowserNotifications.RequestPermission)
+                                    ]
+                                    [ span [ class "material-symbols-outlined mr-4" ] [ text "chat_bubble" ]
+                                    , text "Ask for permission"
+                                    ]
+                            PushPermission.NotSupported -> span [class "pt-2 pb-4 text-sm"] [ text "Push notifications are not supported in this browser" ]
+                            PushPermission.Error e -> span [class "pt-2 pb-4 text-sm"] [text ("Sliha, We couldn't receive your permission. " ++ e)]
+                        ]
+
+                Err error ->
+                    text "Sliha, we can't get your notification permission"
+        Nothing ->
+            text ""
+
+
+subscribeButton : Push -> Translator msg -> Html msg
+subscribeButton push translator =
+    case push of
+        Push.NotAsked ->
+            span
+                [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2 cursor-pointer"
+                , onClick (translator.toParent Notifications.BrowserNotifications.Subscribe)
+                ]
+                [ span [ class "material-symbols-outlined mr-4" ] [ text "notification_add" ]
+                , text "Subscribe"
+                ]
+        Push.Error string -> text "not asked"
+        Push.Subscribed string ->
+            span
+                [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2 cursor-pointer"
+                , onClick (translator.toParent Notifications.BrowserNotifications.Unsubscribe)
+                ]
+                [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off" ]
+                , text "Unsubscribe"
+                ]
+        Push.Unsubscribed maybeString ->
+            span
+                [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2 cursor-pointer"
+                , onClick (translator.toParent Notifications.BrowserNotifications.Subscribe)
+                ]
+                [ span [ class "material-symbols-outlined mr-4" ] [ text "notification_add" ]
+                , text "Subscribe"
+                ]
+        --                subscribePush icon_ t_ =
+        --                    span
+        --                        [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2"
+        --                        , class cursor
+        --                        , onClick (GotPushMsg Push.Subscribe)
+        --                        , disabled p_.buttonDisabled
+        --                        ]
+        --                        [ span [ class "material-symbols-outlined mr-4" ] [ text icon_]
+        --                        , text t_
+        --                        ]
+        --                unsubscribePush t_ =
+        --                    span
+        --                        [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+        --                        , class cursor
+        --                        , onClick (GotPushMsg Push.UnSubscribe)
+        --                        , disabled p_.buttonDisabled
+        --                        ]
+        --                        [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off"]
+        --                        , text t_
+        --                        ]
+        --                pushButton =
+        --                    case  p_.state of
+        --                        Push.NotAsked ->
+        --                            subscribePush "notification_add" "Turn on"
+        --                        Push.Unsubscribed _->
+        --                            subscribePush "notification_add" "Turn on"
+        --                        Push.Denied ->
+        --                            subscribePush "notifications_paused" "Blocked for this site"
+        --                        Push.Error a ->
+        --                            subscribePush "notification_important" ("Error" )
+        --                        Push.NotSupported ->
+        --                            text ""
+        --                        Push.Subscribed _ ->
+        --                            unsubscribePush "Turn off"
+

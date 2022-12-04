@@ -21,6 +21,7 @@ import OtoApi
 import Profile
 import ProfileEdit
 import Notifications.PushPermission as PushPermission
+import Push
 import RemoteData exposing (WebData)
 import Route exposing (Route)
 import SharedModel exposing (Auth(..), SharedModel)
@@ -50,7 +51,7 @@ subscriptions model =
                 , SharedModel.changes AuthEmerged (getSharedModel model)
                 , onNotification (GotNotificationsMsg << Notifications.GotNotification << Decode.decodeValue Notifications.decoder)
                 , Game.onGameMessageDecoded (GotGameMsg << Game.GotWordFromSocket)
-                --, Push.onPushChangeDecoded (GotBrowserNotificationsMsg << Push.GotPushChange)
+                , Push.onPushChange (Decode.decodeValue Push.decoder >> Push.fromResult >> (GotBrowserNotificationsMsg << BrowserNotifications.GotPushChange))
                 , PushPermission.receivedPermission (Decode.decodeValue PushPermission.decoder >> (GotBrowserNotificationsMsg << BrowserNotifications.GotPermission))
                 ]
     in
@@ -249,7 +250,7 @@ update msg model =
                     (model |> getSharedModel |> SharedModel.setBrowserNotifications sub |> updateSharedModel) model
                 browserNotifications = model |> getSharedModel |> SharedModel.browserNotifications |> Maybe.withDefault BrowserNotifications.init
             in
-            updateWith subToModel GotBrowserNotificationsMsg (BrowserNotifications.update subMsg browserNotifications)
+            updateWith subToModel GotBrowserNotificationsMsg (BrowserNotifications.update ({apiUrl = model |> getSharedModel |> .apiUrl, bearer = model |> getSharedModel |> SharedModel.bearer}) subMsg browserNotifications)
 
 
 toggleNotifications : Model -> Bool -> (Model, Cmd Msg)
@@ -331,7 +332,7 @@ view model =
         Login subModel ->   Login.view { toSelf = GotLoginMsg } subModel |> mapOver
         Profile subModel -> Profile.view  { toSelf = GotProfileMsg, onGameStart = LaunchGame } subModel |> mapOver
         Game subModel ->    Game.view { toSelf = GotGameMsg, onGameStart = LaunchGame } subModel |> mapOver
-        ProfileEdit subModel -> ProfileEdit.view { toSelf = GotProfileEditMsg } subModel |> mapOver
+        ProfileEdit subModel -> ProfileEdit.view { toSelf = GotProfileEditMsg, toParent = GotBrowserNotificationsMsg } subModel |> mapOver
 
 
 

@@ -1,35 +1,70 @@
 const applicationServerPublicKey = 'BJG6BHoYQJAAFGfjzR1O5TNIOZaJqrS5obFgZ6re__GH4oeli1Xg7q4JQAnJXLEqMCvhOx79KoMsKWDVNAx032g';
 const applicationServerKeyEncoded = urlB64ToUint8Array(applicationServerPublicKey);
 
-const DENIED        = { status: "denied" };
 const SUBSCRIBED    = (subscription) => { return { status: "subscribed", payload: JSON.stringify(subscription) } };
 const UNSUBSCRIBED  = (subscription) => { return { status: "unsubscribed", payload: JSON.stringify(subscription) } };
-const ERROR         = { status: "error" };
 const ERROR_WORKER  = { status: "error", error: "worker" };
 const ERROR_GET_SUB = { status: "error", error: "get_subscription" };
 const ERROR_GET_REG = { status: "error", error: "get_registration" };
 const ERROR_SUB     = { status: "error", error: "subscribe" };
 const ERROR_UNSUB   = { status: "error", error: "unsubscribe" };
-const NOT_SUPPORTED = { status: "not_supported" };
-const NOT_ASKED     = { status: "not_asked" };
 
+const supported = (("Notification" in window) && ('serviceWorker' in navigator) && ('PushManager' in window))
 
-const checkDenied = () => { return new Promise(function(myResolve, myReject)  {
-    if (Notification.permission === 'denied') {
-        myReject(DENIED);
+const getPermission = () => {
+    if (!supported) {
+        return "not_supported";
     } else {
-        myResolve();
+        return Notification.permission
     }
+}
+
+const requestPermission = () => {
+    return new Promise(function(myResolve, myReject) {
+        if (!supported) {
+            myResolve("not_supported")
+        } else if (Notification.permission === "granted") {
+            myResolve(Notification.permission)
+        } else if (Notification.permission !== "denied") {
+            Notification.requestPermission().then((permission) => {
+                myResolve(Notification.permission)
+            }).catch((e) => { myResolve(JSON.stringify(e)) });
+        }
+    })
+}
+
+const getSubscription = () => { return new Promise(function(myResolve, myReject) {
+    registerWorker().then(
+        (registration) => getSubscriptionFromRegistration(registration).then(
+            (subscription) => myResolve(subscriptionToStatus(subscription)),
+            (error) => myReject(ERROR_GET_SUB)
+        ),
+        (error) => myReject(ERROR_GET_REG)
+    )
 })}
 
-const getPermission = () => { return Notification.permission }
+const subscribe = () => { return new Promise(function(myResolve, myReject) {
+    registerWorker().then(
+        (registration) => subscribeWithRegistration(registration).then(
+            (subscription) => myResolve(subscriptionToStatus(subscription)),
+            (error) => myReject(ERROR_GET_SUB)
+        ),
+        (error) => myReject(ERROR_GET_REG)
+    )
+})}
 
-const checkSupport = () => { return new Promise(function(myResolve, myReject)  {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-        myResolve()
-    } else {
-        myReject(NOT_SUPPORTED);
-    }
+const unsubscribe = () => { return new Promise(function(myResolve, myReject) {
+    registerWorker().then(
+        (registration) => subscribeWithRegistration(registration).then(
+            (subscription) =>
+                subscription.unsubscribe().then(
+                   () => myResolve(UNSUBSCRIBED(subscription)),
+                   (e) => myReject(ERROR_UNSUB)
+                ),
+            (error) => myReject(ERROR_GET_SUB)
+        ),
+        (error) => myReject(ERROR_GET_REG)
+    )
 })}
 
 const registerWorker = () => { return new Promise(function(myResolve, myReject)  {
@@ -39,9 +74,7 @@ const registerWorker = () => { return new Promise(function(myResolve, myReject) 
     )
 })}
 
-const saveRegistration = (registration) => { PushApp.registration = registration; return registration; }
-
-const getSubscription = (registration) => {
+const getSubscriptionFromRegistration = (registration) => {
     return new Promise(function(myResolve, myReject)  {
         registration.pushManager.getSubscription().then(
             (subscription) => myResolve(subscription),
@@ -52,85 +85,31 @@ const getSubscription = (registration) => {
 
 const subscriptionToStatus = (sub) => {
      if (!(sub === null)) {
-        console.log("Subscription", sub)
         return SUBSCRIBED(sub)
      } else {
          return UNSUBSCRIBED(sub)
      }
 }
 
-const getRegistration = () => { return new Promise(function(myResolve, myReject){
-    if (PushApp.registration) {
-        myResolve(PushApp.registration)
-    } else {
-        checkSupport()
-            .then(registerWorker)
-            .then( (registration) => saveRegistration(registration) )
-            .then( (registration) => { myResolve(registration) } )
-            .catch( (e) => myReject(ERROR_GET_REG) )
-    }
-}) }
-
-const subscribe = (registration) => {
+const subscribeWithRegistration = (registration) => {
     return new Promise(function(myResolve, myReject) {
-        checkDenied().then(
-            () => registration.pushManager.subscribe({
-                      userVisibleOnly: true,
-                      applicationServerKey: applicationServerKeyEncoded
-                  })
-                  .then(
-                      (subscription) => myResolve(subscription),
-                      (error) => myReject(ERROR_SUB)
-                  ),
-            (e) => myReject(e)
+        registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKeyEncoded
+        })
+        .then(
+            (subscription) => myResolve(subscription),
+            (error) => myReject(ERROR_SUB)
         )
     });
 };
 
-const unsubscribe = (subscription) => new Promise(function(myResolve, myReject) {
-    if (subscription) {
-        subscription.unsubscribe().then(
-            () => myResolve(subscription),
-            (e) => myReject(ERROR_UNSUB)
-        )
-    } else {
-        myResolve(null)
-    }
-});
-
-
 export const PushApp = {
-    registration: null,
-    status: NOT_ASKED,
     getPermission: getPermission,
-    getStatus: () => {
-        return checkDenied().then(
-            () => { return PushApp.status },
-            (denied) => { return denied }
-        )
-    },
-    init: () => {
-        return getRegistration()
-            .then( (registration) => getSubscription(registration) )
-            .then( (subscription) => { PushApp.status = subscriptionToStatus(subscription) } )
-            .catch( (val) => PushApp.status = val )
-            .then(() => PushApp.getStatus())
-    },
-    subscribe: () => {
-        return getRegistration()
-            .then( (registration) => subscribe(registration) )
-            .then( (subscription) => { PushApp.status = subscriptionToStatus(subscription) } )
-            .catch( (val) => PushApp.status = val )
-            .then(() => PushApp.getStatus())
-    },
-    unsubscribe: () => {
-        return getRegistration()
-            .then( (registration) => getSubscription(registration) )
-            .then( (subscription) => unsubscribe(subscription) )
-            .then( (subscription) => { PushApp.status = UNSUBSCRIBED(subscription) } )
-            .catch( (val) => PushApp.status = val )
-            .then(() => PushApp.getStatus())
-    }
+    requestPermission: requestPermission,
+    getSubscription: getSubscription,
+    subscribe: subscribe,
+    unsubscribe: unsubscribe,
 };
 
 function urlB64ToUint8Array(base64String) {
