@@ -13,6 +13,7 @@ routes url__ =
     in
     { jwt = url_ ("/jwt") Nothing
     , profile = (\uid -> url_ ("/api/v1/users/" ++ (Uid.toString uid)) Nothing )
+    , update_profile = url_ ("/api/v1/users/update") Nothing
     , me = url_ ("/api/v1/users/me") Nothing
     , home = url_ ("/api/v1/games") Nothing
     , friend =

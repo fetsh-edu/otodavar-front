@@ -69,13 +69,15 @@ app.ports.toggleDarkMode.subscribe(() => { toggleDarkMode() });
 
 import { PushApp } from "./push.js";
 
-PushApp.init().then((status) => { app.ports.onPushChange.send(status) } );
+app.ports.receivedPermission.send( PushApp.getPermission() )
 
-const pushSubscribe = () => { PushApp.subscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
-const pushUnsubscribe = () => { PushApp.unsubscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
-
-app.ports.subscribePush.subscribe(pushSubscribe);
-app.ports.unsubscribePush.subscribe(pushUnsubscribe);
+//PushApp.init().then((status) => { app.ports.onPushChange.send(status) } );
+//
+//const pushSubscribe = () => { PushApp.subscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
+//const pushUnsubscribe = () => { PushApp.unsubscribe().then((status) => { app.ports.onPushChange.send(status) } ) }
+//
+//app.ports.subscribePush.subscribe(pushSubscribe);
+//app.ports.unsubscribePush.subscribe(pushUnsubscribe);
 
 // PWA STAFF
 

@@ -69,7 +69,7 @@ update msg model =
                     (model, Cmd.none)
 
         RemoveFriendRequested obj ->
-            ( {model | friendRequest = Loading, confirmUnfriend = Nothing}, friendRequestRemove (toSession model) obj )
+            ( { model | friendRequest = Loading, confirmUnfriend = Nothing }, friendRequestRemove (toSession model) obj )
 
         AcceptFriendRequested obj ->
             ( {model | friendRequest = Loading}, friendRequestAccept (toSession model) obj )

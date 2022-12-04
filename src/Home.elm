@@ -4,17 +4,15 @@ import Browser exposing (Document)
 import Game.OtoGame as Game
 import Game.Games as Games exposing (Games)
 import Game.Game as SGame exposing (Game(..))
-import Html exposing (Html, a, div, img, span, text)
-import Html.Attributes exposing (attribute, class, src)
+import Html exposing (Html, a, div, span, text)
+import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
 import OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Route
 import SharedModel exposing (SharedModel)
-import User.Avatar as Avatar
 import User.Bearer as Bearer
-import User.Name as Name
 import User.Uid exposing (Uid)
 import User.User as User exposing (SimpleInfo, User)
 import View.Helper exposing (nbsp)

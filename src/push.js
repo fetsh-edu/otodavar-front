@@ -22,6 +22,8 @@ const checkDenied = () => { return new Promise(function(myResolve, myReject)  {
     }
 })}
 
+const getPermission = () => { return Notification.permission }
+
 const checkSupport = () => { return new Promise(function(myResolve, myReject)  {
     if ('serviceWorker' in navigator && 'PushManager' in window) {
         myResolve()
@@ -100,6 +102,7 @@ const unsubscribe = (subscription) => new Promise(function(myResolve, myReject) 
 export const PushApp = {
     registration: null,
     status: NOT_ASKED,
+    getPermission: getPermission,
     getStatus: () => {
         return checkDenied().then(
             () => { return PushApp.status },

@@ -1,4 +1,4 @@
-port module Main exposing (Model, init, main, update, view)
+port module Main exposing (init, main, update, view)
 
 import Browser exposing (Document, application)
 import Browser.Navigation as Navigation exposing (Key)
@@ -11,18 +11,22 @@ import Html.Events exposing (onClick)
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Login exposing (convertBytes)
+import Main.Model exposing (Model(..), getSharedModel, updateSharedModel)
 import Maybe
 import Msg exposing (Msg(..))
 import Notifications exposing (Notification, Notifications, onNotification)
+import Notifications.BrowserNotifications as BrowserNotifications
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
 import OtoApi
 import Profile
-import Push
+import ProfileEdit
+import Notifications.PushPermission as PushPermission
 import RemoteData exposing (WebData)
 import Route exposing (Route)
 import SharedModel exposing (Auth(..), SharedModel)
 import Url exposing (Protocol(..), Url)
 import User.Avatar as Avatar
+import User.Email as Email
 import User.Name as Name
 import User.User as User exposing (User(..))
 
@@ -46,25 +50,15 @@ subscriptions model =
                 , SharedModel.changes AuthEmerged (getSharedModel model)
                 , onNotification (GotNotificationsMsg << Notifications.GotNotification << Decode.decodeValue Notifications.decoder)
                 , Game.onGameMessageDecoded (GotGameMsg << Game.GotWordFromSocket)
-                , Push.onPushChangeDecoded (GotPushMsg << Push.GotPushChange)
+                --, Push.onPushChangeDecoded (GotBrowserNotificationsMsg << Push.GotPushChange)
+                , PushPermission.receivedPermission (Decode.decodeValue PushPermission.decoder >> (GotBrowserNotificationsMsg << BrowserNotifications.GotPermission))
                 ]
     in
     defSub
-    --case model of
-    --    Home _ -> defSub
-    --    Login _ -> defSub
-    --    Profile _ -> defSub
 
 -- ---------------------------
 -- MODEL
 -- ---------------------------
-
-type Model
-    = Home Home.Model
-    | Login Login.Model
-    | Profile Profile.Model
-    | Game Game.Model
-
 
 type alias Flags =
   { bytes : Maybe (List Int)
@@ -123,24 +117,6 @@ init flags url navKey =
                    )
 
 
-getSharedModel : Model -> SharedModel
-getSharedModel page =
-    case page of
-        Home session -> Home.toSession session
-        Login model -> Login.toSession model
-        Profile profile -> Profile.toSession profile
-        Game game -> Game.toSession game
-
-
-toRoute : Model -> Maybe Route
-toRoute model =
-    case model of
-        Home _ -> Just Route.Home
-        Login _ -> Just Route.Login
-        Profile some -> Just (Route.Profile some.uid)
-        Game some -> some.game |> RemoteData.map (G.uid >> Route.Game >> Just) |> RemoteData.withDefault Nothing
-
-
 changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
 changeRouteTo maybeRoute model =
     let
@@ -155,8 +131,6 @@ changeRouteTo maybeRoute model =
         case maybeRoute of
             Nothing ->
                 ( model, Route.replaceUrl (SharedModel.navKey session) Route.Home )
-            Just Route.Logout ->
-                (model, SharedModel.logout)
             Just Route.Login ->
                 if (SharedModel.isGuest session)
                 then updateWith Login GotLoginMsg (Login.init session)
@@ -165,6 +139,8 @@ changeRouteTo maybeRoute model =
                 updateWith Home GotHomeMsg (Home.init session)
             Just (Route.Profile uid) ->
                 updateWith Profile GotProfileMsg (Profile.init session uid)
+            Just Route.ProfileEdit ->
+                updateWith ProfileEdit GotProfileEditMsg (ProfileEdit.init session)
             Just (Route.Game uid) ->
                 let
                     newState = updateWith Game GotGameMsg (Game.init session uid)
@@ -230,12 +206,14 @@ update msg model =
             updateWith Profile GotProfileMsg (Profile.update subMsg login_)
         ( GotProfileMsg _, _) -> noOp model
 
+        ( GotProfileEditMsg subMsg, ProfileEdit shared  ) ->
+            updateWith ProfileEdit GotProfileEditMsg (ProfileEdit.update subMsg shared)
+        ( GotProfileEditMsg _, _) -> noOp model
 
         ( GotNotificationsMsg (Notifications.GotNotifications data), any ) ->
             noOp (updateNotifications any data)
         ( GotNotificationsMsg (Notifications.GotNotification n), any) ->
             noOp (appendNotifications any n)
-
 
         (HideNotifications, _) ->
             toggleNotifications model False
@@ -244,7 +222,7 @@ update msg model =
 
         ( UserInfoReceived userInfo, _ ) ->
             let
-                newShared = model |> getSharedModel |> SharedModel.updateUserInfo userInfo
+                newShared = model |> getSharedModel |> SharedModel.updateUserInfoWD userInfo
             in
             (model |> updateSharedModel newShared, Cmd.none)
 
@@ -265,30 +243,13 @@ update msg model =
             ((model |> getSharedModel |> (\x -> { x | drawer = False } ) |> updateSharedModel) model, Cmd.none)
         (ShowDrawer, _) ->
             ((model |> getSharedModel |> (\x -> { x | drawer = True } ) |> updateSharedModel) model, Cmd.none)
-        (GotPushMsg (Push.GotPushChange push), _) ->
+        (GotBrowserNotificationsMsg subMsg, _) ->
             let
-                sharedModel = model |> getSharedModel
-                newModel = model |> updateSharedModel (sharedModel |> SharedModel.setPush { state = push, buttonDisabled = False } )
-                newCommand = push |> Push.toCmd (sharedModel.apiUrl) (SharedModel.bearer sharedModel) |> Cmd.map GotPushMsg
+                subToModel sub =
+                    (model |> getSharedModel |> SharedModel.setBrowserNotifications sub |> updateSharedModel) model
+                browserNotifications = model |> getSharedModel |> SharedModel.browserNotifications |> Maybe.withDefault BrowserNotifications.init
             in
-            ( newModel
-            , newCommand
-            )
-        (GotPushMsg (Push.Subscribe), _) ->
-            ( model |> updateSharedModel (model |> getSharedModel |> SharedModel.disablePushButton )
-            , Push.subscribePush ()
-            )
-        (GotPushMsg (Push.UnSubscribe), _) ->
-            ( model |> updateSharedModel (model |> getSharedModel |> SharedModel.enablePushButton )
-            , Push.unsubscribePush ()
-            )
-        (GotPushMsg (Push.HandlePushResponse resp), _) ->
-            case resp of
-                RemoteData.Failure e ->
-                    ( model |> updateSharedModel (model |> getSharedModel |> SharedModel.setPush { state = Push.Error "server", buttonDisabled = False } )
-                    , Cmd.none
-                    )
-                _ -> ( model, Cmd.none )
+            updateWith subToModel GotBrowserNotificationsMsg (BrowserNotifications.update subMsg browserNotifications)
 
 
 toggleNotifications : Model -> Bool -> (Model, Cmd Msg)
@@ -323,17 +284,9 @@ appendNotifications model data =
             |> SharedModel.updateNotifications (\n -> { n | items = RemoteData.map (\i -> value :: i) n.items })
             |> updateSharedModel
             ) model
-        Err error ->
+        Err _ ->
             model
 
-
-updateSharedModel : SharedModel -> Model -> Model
-updateSharedModel session_ model =
-    case model of
-        Home subModel ->  subModel |> Home.updateSession session_ |> Home
-        Login subModel ->  subModel |> Login.updateSession session_ |> Login
-        Profile subModel ->  subModel |> Profile.updateSession session_ |> Profile
-        Game subModel ->  subModel |> Game.updateSession session_ |> Game
 
 
 updateWith : (subModel -> Model) -> (subMsg -> Msg) -> ( subModel, Cmd subMsg ) -> ( Model, Cmd Msg )
@@ -361,14 +314,15 @@ view model =
             in
             { title = "oto|davar " ++ title
             , body =
-                [ main_ [ class "surface on-surface-text pt-4 md:pt-10"
-                        , style "height" "100%"
-                        , style "color-scheme" "dark"
-                        ]
-                        [ header_ model
-                        , div [] body
-                        , footer_ (model |> getSharedModel |> SharedModel.user)
-                        ]
+                [ main_
+                    [ class "surface on-surface-text pt-4 md:pt-10"
+                    , style "height" "100%"
+                    , style "color-scheme" "dark"
+                    ]
+                    [ header_ model
+                    , div [] body
+                    , footer_ (model |> getSharedModel |> SharedModel.user)
+                    ]
                 ]
             }
     in
@@ -377,6 +331,8 @@ view model =
         Login subModel ->   Login.view { toSelf = GotLoginMsg } subModel |> mapOver
         Profile subModel -> Profile.view  { toSelf = GotProfileMsg, onGameStart = LaunchGame } subModel |> mapOver
         Game subModel ->    Game.view { toSelf = GotGameMsg, onGameStart = LaunchGame } subModel |> mapOver
+        ProfileEdit subModel -> ProfileEdit.view { toSelf = GotProfileEditMsg } subModel |> mapOver
+
 
 
 header_ : Model -> Html Msg
@@ -462,12 +418,8 @@ drawer model =
                     span
                         [ class "ml-3 flex-1 py-3 flex flex-col whitespace-nowrap"]
                         [ span [class "font-bold"] [ some |> User.info |> .name |> Name.toString |> text ]
-                        , a
-                            [ class "text-xs uppercase on-surface-variant-text"
-                            , onClick HideDrawer
-                            , Route.href Route.Logout
-                            ]
-                            [ text "Sign Out" ]
+                        , span [class "text-xs uppercase on-surface-variant-text"] [ some |> User.info |> .email |> Email.toString |> text ]
+                        --, a [ class "text-xs uppercase on-surface-variant-text", onClick HideDrawer, Route.href Route.Logout][ text "Sign Out" ]
                         ]
                 Nothing ->
                     span
@@ -475,61 +427,101 @@ drawer model =
                        [ span [] [text "Guest"]
                        ]
         userCard =
-            div [ class "flex flex-row  items-center"]
+            a
+                [ class "flex flex-row  items-center"
+                , onClick HideDrawer
+                , Route.href Route.ProfileEdit
+                ]
                 [ avatar
                 , name
                 ]
-        notifications =
-            case (model |> getSharedModel |> .auth) of
-                LoggedIn _ _ p_ ->
-                    let
-                        cursor =
-                            if p_.buttonDisabled
-                            then "cursor-default on-surface-variant-text"
-                            else "cursor-pointer"
-                        subscribePush icon_ t_ =
-                            span
-                                [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2"
-                                , class cursor
-                                , onClick (GotPushMsg Push.Subscribe)
-                                , disabled p_.buttonDisabled
-                                ]
-                                [ span [ class "material-symbols-outlined mr-4" ] [ text icon_]
-                                , text t_
-                                ]
-                        unsubscribePush t_ =
-                            span
-                                [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
-                                , class cursor
-                                , onClick (GotPushMsg Push.UnSubscribe)
-                                , disabled p_.buttonDisabled
-                                ]
-                                [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off"]
-                                , text t_
-                                ]
-                        pushButton =
-                            case  p_.state of
-                                Push.NotAsked ->
-                                    subscribePush "notification_add" "Turn on"
-                                Push.Unsubscribed _->
-                                    subscribePush "notification_add" "Turn on"
-                                Push.Denied ->
-                                    subscribePush "notifications_paused" "Blocked for this site"
-                                Push.Error a ->
-                                    subscribePush "notification_important" ("Error" )
-                                Push.NotSupported ->
-                                    text ""
-                                Push.Subscribed _ ->
-                                    unsubscribePush "Turn off"
-
-                    in
-                    div
-                        [ class "border-t border-light-200 text-left pt-3 pb-3 flex flex-col" ]
-                        [ span [ class "pl-4 mb-2 on-surface-variant-text text-sm" ] [ text "Notifications" ]
-                        , pushButton
-                        ]
-                Guest _ ->
-                    text ""
+        friendsLink =
+            case model |> getSharedModel |> SharedModel.user of
+                Just me ->
+                    a
+                      [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+                      , onClick HideDrawer
+                      , Route.href (me |> User.info |> .uid |> Route.Profile)
+                      ]
+                      [ span [ class "material-symbols-outlined mr-4" ] [ text "groups"]
+                      , text "Friends"
+                      ]
+                Nothing -> text ""
+        gamesLink =
+            case model |> getSharedModel |> SharedModel.user of
+                Just me ->
+                    a
+                      [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+                      , onClick HideDrawer
+                      , Route.href Route.Home
+                      ]
+                      [ span [ class "material-symbols-outlined mr-4" ] [ text "sports_esports"]
+                      , text "Games"
+                      ]
+                Nothing -> text ""
+        drawerFooter =
+            div
+                [ class "border-t border-light-200 text-left pt-3 pb-3 flex flex-col" ]
+                [ span [ class "pl-4 mb-2 on-surface-variant-text text-sm" ] [ text "Dark mode" ]
+                , span
+                      [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+                      , onClick ToggleDarkMode
+                      ]
+                      [ span [ class "material-symbols-outlined mr-4" ] [ text "dark_mode"]
+                      , text "Toggle theme"
+                      ]
+                ]
+        --notifications =
+        --    case (model |> getSharedModel |> .auth) of
+        --        LoggedIn _ _ p_ ->
+        --            let
+        --                cursor =
+        --                    if p_.buttonDisabled
+        --                    then "cursor-default on-surface-variant-text"
+        --                    else "cursor-pointer"
+        --                subscribePush icon_ t_ =
+        --                    span
+        --                        [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2"
+        --                        , class cursor
+        --                        , onClick (GotPushMsg Push.Subscribe)
+        --                        , disabled p_.buttonDisabled
+        --                        ]
+        --                        [ span [ class "material-symbols-outlined mr-4" ] [ text icon_]
+        --                        , text t_
+        --                        ]
+        --                unsubscribePush t_ =
+        --                    span
+        --                        [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
+        --                        , class cursor
+        --                        , onClick (GotPushMsg Push.UnSubscribe)
+        --                        , disabled p_.buttonDisabled
+        --                        ]
+        --                        [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off"]
+        --                        , text t_
+        --                        ]
+        --                pushButton =
+        --                    case  p_.state of
+        --                        Push.NotAsked ->
+        --                            subscribePush "notification_add" "Turn on"
+        --                        Push.Unsubscribed _->
+        --                            subscribePush "notification_add" "Turn on"
+        --                        Push.Denied ->
+        --                            subscribePush "notifications_paused" "Blocked for this site"
+        --                        Push.Error a ->
+        --                            subscribePush "notification_important" ("Error" )
+        --                        Push.NotSupported ->
+        --                            text ""
+        --                        Push.Subscribed _ ->
+        --                            unsubscribePush "Turn off"
+        --
+        --            in
+        --            div
+        --                [ class "border-t border-light-200 text-left pt-3 pb-3 flex flex-col" ]
+        --                [ span [ class "pl-4 mb-2 on-surface-variant-text text-sm" ] [ text "Notifications" ]
+        --                , pushButton
+        --                ]
+        --        Guest _ ->
+        --            text ""
     in
     div
         [ class "fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 py-0 px-0"
@@ -546,15 +538,11 @@ drawer model =
                 ]
             , div
                 [ class "overflow-y-auto flex-grow pt-4" ]
-                [ span
-                    [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
-                    , onClick ToggleDarkMode
-                    ]
-                    [ span [ class "material-symbols-outlined mr-4" ] [ text "dark_mode"]
-                    , text "Toggle theme"
-                    ]
+                [ friendsLink
+                , gamesLink
                 ]
-            , notifications
+            , drawerFooter
+            --, notifications
             ]
         ]
 

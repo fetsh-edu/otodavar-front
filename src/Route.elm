@@ -10,8 +10,8 @@ import User.Uid as Uid exposing (Uid(..))
 type Route
     = Home
     | Profile Uid
+    | ProfileEdit
     | Game Uid
-    | Logout
     | Login
 
 
@@ -19,9 +19,9 @@ parser : Parser (Route -> a) a
 parser =
     oneOf
         [ Parser.map Home Parser.top
+        , Parser.map ProfileEdit (s "profile")
         , Parser.map Profile (s "u" </> Parser.map Uid Parser.string)
         , Parser.map Game (s "g" </> Parser.map Uid Parser.string)
-        , Parser.map Logout (s "logout")
         , Parser.map Login (s "login")
         ]
 
@@ -32,7 +32,7 @@ isProtected route =
         Home -> True
         Profile _ -> True
         Game _ -> True
-        Logout -> False
+        ProfileEdit -> True
         Login -> False
 
 href : Route -> Attribute msg
@@ -54,10 +54,10 @@ routeToString page =
         pieces =
             case page of
                 Home    -> []
-                Profile uid -> ["u", Uid.toString uid]
-                Game uid -> ["g", Uid.toString uid]
-                Logout  -> ["logout"]
-                Login   -> ["login"]
+                Profile uid -> [ "u", Uid.toString uid ]
+                Game uid -> [ "g", Uid.toString uid ]
+                Login   -> [ "login" ]
+                ProfileEdit -> [ "profile" ]
 
     in
     "/" ++ String.join "/" pieces

@@ -5,12 +5,11 @@ import Http
 import Json.Decode as Decode
 import Json.Encode as Encode
 import Notifications exposing (Notification, Notifications)
-import OtoApi exposing (config)
-import Push exposing (Push)
+import Notifications.BrowserNotifications as BrowserNotifications exposing (BrowserNotifications)
+--import Push
 import RemoteData exposing (WebData)
-import RemoteData.Http
 import Url exposing (Url)
-import User.Bearer as Bearer exposing (Bearer)
+import User.Bearer exposing (Bearer)
 import User.User as User exposing (SimpleInfo, User)
 
 type alias SharedModel =
@@ -22,8 +21,9 @@ type alias SharedModel =
     , auth : Auth
     }
 
+
 type Auth
-    = LoggedIn User Notifications Push.Model
+    = LoggedIn User Notifications BrowserNotifications
     | Guest (Maybe Error)
 
 type Error
@@ -49,8 +49,8 @@ notifications session =
         LoggedIn _ n _ -> Just n
         Guest _ -> Nothing
 
-push : SharedModel -> Maybe Push.Model
-push sharedModel =
+browserNotifications : SharedModel -> Maybe BrowserNotifications
+browserNotifications sharedModel =
     case sharedModel.auth of
         LoggedIn _ _ p_ -> Just p_
         Guest _ -> Nothing
@@ -61,23 +61,23 @@ setNotifications n_ s_ =
         Guest _ -> s_
         LoggedIn user_ ns_ p_ -> {s_ | auth = LoggedIn user_ { ns_ | items = n_} p_ }
 
-setPush : Push.Model -> SharedModel -> SharedModel
-setPush p_ s_ =
+setBrowserNotifications : BrowserNotifications -> SharedModel -> SharedModel
+setBrowserNotifications p_ s_ =
     case s_.auth of
         Guest _ -> s_
         LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ p_ }
 
-disablePushButton : SharedModel -> SharedModel
-disablePushButton s_ =
-    case s_.auth of
-        Guest _ -> s_
-        LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ { oldP_ | buttonDisabled = True } }
+--disablePushButton : SharedModel -> SharedModel
+--disablePushButton s_ =
+--    case s_.auth of
+--        Guest _ -> s_
+--        LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ { oldP_ | buttonDisabled = True } }
 
-enablePushButton : SharedModel -> SharedModel
-enablePushButton s_ =
-    case s_.auth of
-        Guest _ -> s_
-        LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ { oldP_ | buttonDisabled = False } }
+--enablePushButton : SharedModel -> SharedModel
+--enablePushButton s_ =
+--    case s_.auth of
+--        Guest _ -> s_
+--        LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ { oldP_ | buttonDisabled = False } }
 
 
 updateNotifications : (Notifications -> Notifications)  -> SharedModel -> SharedModel
@@ -88,8 +88,8 @@ updateNotifications f s_ =
 
 
 
-updateUserInfo : WebData SimpleInfo -> SharedModel -> SharedModel
-updateUserInfo userInfo oldModel =
+updateUserInfoWD : WebData SimpleInfo -> SharedModel -> SharedModel
+updateUserInfoWD userInfo oldModel =
     case oldModel.auth of
         Guest _ -> oldModel
         LoggedIn user_ ns_ p_ ->
@@ -98,6 +98,12 @@ updateUserInfo userInfo oldModel =
                 RemoteData.Success a -> { oldModel | auth = LoggedIn (User.updateInfo a user_) ns_ p_ }
                 _ -> oldModel
 
+updateUserInfo : SimpleInfo -> SharedModel -> SharedModel
+updateUserInfo userInfo oldModel =
+    case oldModel.auth of
+        Guest _ -> oldModel
+        LoggedIn user_ ns_ p_ ->
+                { oldModel | auth = LoggedIn (User.updateInfo userInfo user_) ns_ p_ }
 
 isGuest : SharedModel -> Bool
 isGuest sm =
@@ -136,7 +142,8 @@ decode oldModel value =
                     LoggedIn
                         decodedViewer
                         (notifications oldModel |> Maybe.withDefault Notifications.initModel)
-                        (push oldModel |> Maybe.withDefault Push.init)
+                        BrowserNotifications.init
+                        --(push oldModel |> Maybe.withDefault Push.init)
 
                 Ok Nothing ->
                     Guest Nothing
