@@ -140,7 +140,6 @@ successView translator me model =
                         [ value model.newName
                         , style "appearance" "none"
                         , class "bg-transparent focus:outline-none w-44 border-b-2 py-1 border-dashed"
-                        , autofocus True
                         , onInput (translator.toSelf << OnUserNameChange)
                         ]
                         []

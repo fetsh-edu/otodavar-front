@@ -1,7 +1,6 @@
 module Notifications.BrowserNotifications exposing (..)
 
 import Json.Decode as Decode
-import Json.Encode as Encode
 import Notifications.PushPermission as Permission exposing (Permission)
 import OtoApi
 import Push exposing (Push)

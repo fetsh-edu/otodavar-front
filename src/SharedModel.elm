@@ -6,8 +6,6 @@ import Json.Decode as Decode
 import Json.Encode as Encode
 import Notifications exposing (Notification, Notifications)
 import Notifications.BrowserNotifications as BrowserNotifications exposing (BrowserNotifications)
---import Push
-import Notifications.TelegramAuth exposing (TelegramAuth, TelegramNotifications)
 import RemoteData exposing (WebData)
 import Url exposing (Url)
 import User.Bearer exposing (Bearer)
