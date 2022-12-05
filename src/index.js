@@ -5,11 +5,14 @@ require("./theme.css");
 require("./styles.scss");
 import '@github/clipboard-copy-element';
 import { createConsumer } from 'actioncable-jwt'
+import TelegramButton from './telegram-button.js';
+
 
 const {Elm} = require('./Main');
 
 const bytesKey = "bytes"
 const bearerKey = "bearer"
+const infoKey = "info"
 
 
 function getTheme() {
@@ -53,9 +56,24 @@ if (typeof process !== 'undefined') {
     }
 }
 
+const buildBearerInfo = (a, b) => {
+    const bearer_ = JSON.parse(a)
+    const info_ = JSON.parse(b)
+    if (bearer_ === null) {
+        return null;
+    } else if (typeof bearer_ === "string") {
+        return { bearer: bearer_, info: info_ };
+    } else if (typeof bearer_ === "object") {
+        if (info_) {
+            bearer_.info = info_
+        }
+        return bearer_;
+    }
+}
+
 const flags = {
     bytes: rememberedBytes(),
-    bearer: JSON.parse(localStorage.getItem(bearerKey)),
+    bearer: buildBearerInfo(localStorage.getItem(bearerKey), localStorage.getItem(infoKey)),
     apiUrl: apiUrl
 }
 
@@ -108,9 +126,8 @@ const Sockets = {
 
 
 const initConsumer = () => {
-    let bearer = JSON.parse(localStorage.getItem(bearerKey));
+    let bearer = buildBearerInfo(localStorage.getItem(bearerKey), localStorage.getItem(infoKey));
     if (bearer === null) {
-
         console.log("No consumer for logged out.");
         if (Sockets.consumer) {
             if (Sockets.notificationsSub) {
@@ -164,11 +181,22 @@ app.ports.subscribeToGame.subscribe(function (game_uid) {
     }
 })
 
+
+app.ports.storeUserInfo.subscribe(function (val) {
+    console.log(val)
+    if (val === null) {
+        localStorage.removeItem(infoKey);
+    } else {
+        localStorage.setItem(infoKey, JSON.stringify(val));
+    }
+})
+
 app.ports.storeSession.subscribe(function (val) {
     if (val === null) { // logout
         localStorage.removeItem(bearerKey);
     } else {
-        localStorage.setItem(bearerKey, JSON.stringify(val));
+        localStorage.setItem(bearerKey, JSON.stringify(val.bearer));
+        localStorage.setItem(infoKey, JSON.stringify(val.info));
     }
     initConsumer();
     // https://stackoverflow.com/questions/779379/why-is-settimeoutfn-0-sometimes-useful
@@ -179,7 +207,9 @@ app.ports.storeSession.subscribe(function (val) {
 // Listen for localStorage changes
 window.addEventListener("storage", function (event) {
     if (event.storageArea === localStorage && event.key === bearerKey) {
-        app.ports.onSessionChange.send(JSON.parse(event.newValue));
+        app.ports.onSessionChange.send(
+            buildBearerInfo(event.newValue, localStorage.getItem(infoKey))
+        );
     }
 }, false);
 

@@ -25,6 +25,7 @@ const dev = {
             stats: "errors-only"
         },
         historyApiFallback: true,
+        allowedHosts: 'all'
     },
 };
 

@@ -7,6 +7,7 @@ import Json.Encode as Encode
 import Notifications exposing (Notification, Notifications)
 import Notifications.BrowserNotifications as BrowserNotifications exposing (BrowserNotifications)
 --import Push
+import Notifications.TelegramAuth exposing (TelegramAuth, TelegramNotifications)
 import RemoteData exposing (WebData)
 import Url exposing (Url)
 import User.Bearer exposing (Bearer)
@@ -55,6 +56,7 @@ browserNotifications sharedModel =
         LoggedIn _ _ p_ -> Just p_
         Guest _ -> Nothing
 
+
 setNotifications : WebData (List Notification) -> SharedModel -> SharedModel
 setNotifications n_ s_ =
     case s_.auth of
@@ -65,7 +67,8 @@ setBrowserNotifications : BrowserNotifications -> SharedModel -> SharedModel
 setBrowserNotifications p_ s_ =
     case s_.auth of
         Guest _ -> s_
-        LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ p_ }
+        LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ p_}
+
 
 --disablePushButton : SharedModel -> SharedModel
 --disablePushButton s_ =
@@ -108,7 +111,7 @@ updateUserInfo userInfo oldModel =
 isGuest : SharedModel -> Bool
 isGuest sm =
     case sm.auth of
-        LoggedIn _ _ _ -> False
+        LoggedIn _ _ _  -> False
         _ -> True
 
 user : SharedModel -> Maybe User
@@ -128,8 +131,8 @@ logout =
     storeSession Nothing
 
 changes : (SharedModel -> msg) -> SharedModel -> Sub msg
-changes toMsg session =
-    onSessionChange (\val -> toMsg (decode session val))
+changes toMsg sharedModel =
+    onSessionChange (\val -> toMsg (decode sharedModel val))
 
 decode : SharedModel -> Decode.Value -> SharedModel
 decode oldModel value =
@@ -143,7 +146,7 @@ decode oldModel value =
                         decodedViewer
                         (notifications oldModel |> Maybe.withDefault Notifications.initModel)
                         BrowserNotifications.init
-                        --(push oldModel |> Maybe.withDefault Push.init)
+
 
                 Ok Nothing ->
                     Guest Nothing

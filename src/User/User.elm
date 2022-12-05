@@ -25,6 +25,7 @@ type alias SimpleInfo =
     , avatar : Avatar
     , name : Name
     , friendStatus : FriendStatus.Status
+    , telegramId : Maybe Int
     }
 
 type alias FullInfo =
@@ -92,44 +93,52 @@ encodeUserInfo uInfo =
         , ( "avatar", Avatar.encode uInfo.avatar )
         , ( "name", Name.encode uInfo.name )
         , ( "friend_status", FriendStatus.encode uInfo.friendStatus )
+        , ( "telegram_id",
+            case uInfo.telegramId of
+                Nothing -> Encode.null
+                Just some -> Encode.int some
+          )
         ]
 
-encodeInfo : SimpleInfo -> Value
-encodeInfo { email, avatar, name, uid, friendStatus } =
-    Encode.object
-        [ ( "email", Email.encode email)
-        , ( "uid", Uid.encode uid)
-        , ( "avatar", Avatar.encode avatar )
-        , ( "name", Name.encode name )
-        , ( "friend_status", FriendStatus.encode friendStatus )
-        ]
 
 decoderUserInfo : Decoder SimpleInfo
 decoderUserInfo =
-    Decode.map5 SimpleInfo
+    Decode.map6 SimpleInfo
         (Decode.field "email" Email.decoder)
         (Decode.field "uid" Uid.decoder)
         (Decode.field "avatar" Avatar.decoder)
         (Decode.field "name" Name.decoder)
         (Decode.field "friend_status" FriendStatus.decoder)
+        (Decode.oneOf
+             [ Decode.field "telegram_id" (Decode.nullable Decode.int)
+             , Decode.succeed Nothing
+             ])
 
 decoderInfo : Decoder SimpleInfo
 decoderInfo =
-    Decode.map5 SimpleInfo
+    Decode.map6 SimpleInfo
         (Decode.field "email" Email.decoder)
         (Decode.field "uid" Uid.decoder)
         (Decode.field "avatar" Avatar.decoder)
         (Decode.field "name" Name.decoder)
         (Decode.field "friend_status" FriendStatus.decoder)
+        (Decode.oneOf
+             [ Decode.field "telegram_id" (Decode.nullable Decode.int)
+             , Decode.succeed Nothing
+             ])
 
 decoderSimpleInfo2 : Decoder SimpleInfo
 decoderSimpleInfo2 =
-    Decode.map5 SimpleInfo
+    Decode.map6 SimpleInfo
         (at ["data", "email"] Email.decoder)
         (at ["data", "uid"] Uid.decoder)
         (at ["data", "avatar"] Avatar.decoder)
         (at ["data", "name"] Name.decoder)
         (at ["data", "friend_status"] FriendStatus.decoder)
+        (Decode.oneOf
+             [ at ["data", "telegram_id"] (Decode.nullable Decode.int)
+             , Decode.succeed Nothing
+             ])
 
 decoderFullInfo : Decoder FullInfo
 decoderFullInfo =
