@@ -23,10 +23,12 @@ import ProfileEdit
 import Notifications.PushPermission as PushPermission
 import Push
 import RemoteData exposing (WebData)
+import RemoteData.Http
 import Route exposing (Route)
 import SharedModel exposing (Auth(..), SharedModel)
 import Url exposing (Protocol(..), Url)
 import User.Avatar as Avatar
+import User.Bearer as Bearer
 import User.Email as Email
 import User.Name as Name
 import User.User as User exposing (User(..))
@@ -113,10 +115,19 @@ init flags url navKey =
                         , Cmd.batch
                             [ newCmd
                             , Notifications.get apiUrl (GotNotificationsMsg << Notifications.GotNotifications) (SharedModel.bearer (sharedModel url))
+                            , getUserInfo (sharedModel url)
                             ]
                         )
                    )
 
+
+getUserInfo : SharedModel -> Cmd Msg
+getUserInfo sharedModel =
+    let
+        url = (OtoApi.routes (sharedModel.apiUrl)).me
+        message bearer = RemoteData.Http.getWithConfig (OtoApi.config bearer) url UserInfoReceived User.decoderInfo
+    in
+    sharedModel |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
 changeRouteTo maybeRoute model =
@@ -225,7 +236,10 @@ update msg model =
             let
                 newShared = model |> getSharedModel |> SharedModel.updateUserInfoWD userInfo
             in
-            (model |> updateSharedModel newShared, Cmd.none)
+            ( model |> updateSharedModel newShared
+            , userInfo |> RemoteData.map (User.encodeUserInfo >> Just >> ProfileEdit.storeUserInfo) |> RemoteData.withDefault Cmd.none
+            )
+
 
         ( GotHomeMsg subMsg, Home subModel  ) ->
             updateWith Home GotHomeMsg (Home.update subMsg subModel)
