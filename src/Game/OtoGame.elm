@@ -14,6 +14,10 @@ type alias OtoGame =
     , words : List Word
     }
 
+updateWord : Word -> OtoGame -> OtoGame
+updateWord word game =
+    { game | words = List.map (\x -> if x.id == word.id then word else x ) game.words }
+
 players : OtoGame -> List SimpleInfo
 players game =
     case game.player_2 of

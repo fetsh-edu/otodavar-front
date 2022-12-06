@@ -4,11 +4,11 @@ import Browser exposing (Document)
 import Browser.Dom as Dom
 import Browser.Navigation as Navigation
 import Game.GameStatus as Status
-import Game.OtoGame as OtoGame exposing (OtoGame)
 import Game.Game as Game exposing (Game(..))
 import Game.Round as Round exposing (Round(..))
+import Game.Stamp as Stamp exposing (Stamp)
 import Game.Word as Word exposing (Word)
-import Helpers exposing (maybeFilter, onEnter)
+import Helpers exposing (onEnter)
 import Html exposing (Html, a, button, div, input, p, span, text)
 import Html.Attributes exposing (autocomplete, autofocus, class, disabled, id, placeholder, style, value)
 import Html.Events exposing (onClick, onInput)
@@ -33,6 +33,7 @@ type alias Model =
     , game : WebData Game
     , guess : String
     , guessWebData : WebData Game
+    , stickerSelectShown : Maybe { wordId: Int }
     }
 
 type Msg
@@ -41,10 +42,14 @@ type Msg
     | SubmitGuess
     | OnGuessResponse (WebData Game)
     | GotWordFromSocket (Result Decode.Error Word)
+    | SelectSticker Int
+    | SendSticker Stamp
+    | OnSendSticker (WebData Bool)
+    | CloseStickers
     | NoOp
 
 initModel : SharedModel -> Model
-initModel = Model >> (\x -> x Loading "" NotAsked)
+initModel = Model >> (\x -> x Loading "" NotAsked Nothing)
 
 toSession : Model -> SharedModel
 toSession = .session
@@ -94,9 +99,23 @@ update msg model =
         GotWordFromSocket (Ok word) ->
             if model |> toSession |> SharedModel.user |> Maybe.map User.info |> Maybe.map (\x -> x.uid /= word.player) |> Maybe.withDefault False
             then ( model, model.game |> RemoteData.map (Game.uid >> get (model.session)) |> RemoteData.withDefault Cmd.none )
-            else ( model, Cmd.none )
+            else ( { model | game = RemoteData.map (Game.updateWord word) model.game }, Cmd.none )
         GotWordFromSocket (Err e) ->
             (model, Cmd.none)
+        SelectSticker wordId ->
+            case model.stickerSelectShown of
+                Nothing ->
+                    ({ model | stickerSelectShown = Just { wordId = wordId } }, Cmd.none)
+                Just _ ->
+                    ({ model | stickerSelectShown = Nothing }, Cmd.none)
+        SendSticker sticker ->
+            ( { model | stickerSelectShown = Nothing }
+            , sendSticker model.session sticker model.stickerSelectShown
+            )
+        OnSendSticker _ ->
+            (model, Cmd.none)
+        CloseStickers ->
+            ({ model | stickerSelectShown = Nothing }, Cmd.none)
         NoOp -> (model, Cmd.none)
 
 
@@ -120,6 +139,18 @@ launchCmd session maybeUid =
                 uidEncoder
     in
     session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+
+
+sendSticker : SharedModel -> Stamp -> Maybe { a | wordId : Int } -> Cmd Msg
+sendSticker session stamp stickerSelectShown =
+    case stickerSelectShown of
+        Nothing -> Cmd.none
+        Just { wordId } ->
+            let
+                url = (OtoApi.routes session.apiUrl).word.stamp(wordId)
+                message bearer = RemoteData.Http.postWithConfig (config bearer) url OnSendSticker (Decode.null False) (Encode.object [ ("stamp", Stamp.encode stamp)])
+            in
+            session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
 get : SharedModel -> Uid -> Cmd Msg
@@ -172,7 +203,7 @@ gameView translator me model =
                 -- TODO: Handle this
                 NotAsked -> [ View.Helper.loadingContainer "not asked" ]
                 Loading -> [ loadingContent ]
-                Success a -> successContent translator me model.guess model.guessWebData a
+                Success game -> successContent translator me model.guess model.guessWebData game model.stickerSelectShown
                 Failure e ->
                     case e of
                         BadStatus 404 -> [ View.Helper.notFound ]
@@ -218,12 +249,31 @@ loadingContent =
             ]
         ]
 
-successContent : Translator msg -> User -> String -> WebData Game -> Game -> List (Html msg)
-successContent translator me guessText guessData sGame =
+successContent : Translator msg -> User -> String -> WebData Game -> Game -> Maybe {wordId : Int} -> List (Html msg)
+successContent translator me guessText guessData sGame stickerSelect =
     case sGame of
         WrongState otoGame -> [View.Helper.loadingContainer "Game is in some wrong state. It shouldn't be possible. If you can, send this url to developer." ]
         RightState state ->
             let
+                stickerOne sticker =
+                    span
+                        [ class "border border-light-200 border-dashed p-1 px-2 m-1 rounded-md cursor-pointer"
+                        , onClick (translator.toSelf (SendSticker sticker))
+                        ]
+                        [ text (Stamp.toIcon sticker), text " ", text (Stamp.toString sticker) ]
+                stickersSelect =
+                    case stickerSelect of
+                        Nothing -> text ""
+                        Just { wordId } ->
+                            div [ class "absolute top-2 w-full select-none" ]
+                                [ div [class "surface on-surface-text rounded-lg p-4 flex flex-wrap mx-2 opacity-95 justify-center"]
+                                    (List.map stickerOne Stamp.all)
+                                , span
+                                    [ onClick (translator.toSelf CloseStickers)
+                                    , class "absolute top-0 right-2 p-2 material-symbols-outlined md-24 cursor-pointer"
+                                    ]
+                                    [ text "close" ]
+                                ]
                 playAgainAction =
                     case state |> Game.opponent of
                         Just opponent ->
@@ -252,7 +302,8 @@ successContent translator me guessText guessData sGame =
                 [ div
                     [ class "secondary-container on-secondary-container-text rounded-lg relative mb-2" ]
                     [ currentGuess translator guessText state guessData
-                    , oldGuesses state
+                    , oldGuesses translator state
+                    , stickersSelect
                     ]
                 , playAgainButton
                 ]
@@ -354,7 +405,7 @@ currentGuess translator guessText sGame guessData =
             else
                 case Game.payload sGame |> .question of
                     Just a ->
-                        roundView Big a
+                        roundView translator Big a
                     Nothing ->
                         case sGame of
                             Game.Mine _ _ p_ ->
@@ -367,7 +418,11 @@ currentGuess translator guessText sGame guessData =
     div
         [ class "tertiary-container on-tertiary-container-text rounded-lg py-4 filter drop-shadow overflow-hidden"]
         [ div [class "flex z-10 flex-row justify-around"]
-            [ span [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ] [ Avatar.img leftUser.avatar "w-20 h-20  filter drop-shadow", span [] [text leftUserName] ]
+            [ span
+                [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ]
+                [ Avatar.img leftUser.avatar "w-20 h-20  filter drop-shadow"
+                , span [] [text leftUserName]
+                ]
             , span
                 [ class "flex items-center w-40 flex-col z-1 relative" ]
                 [ rightUserAvatar
@@ -416,8 +471,8 @@ type Size = Small | Big
 
 
 
-roundView : Size -> Round -> Html msg
-roundView size round =
+roundView : Translator msg -> Size -> Round -> Html msg
+roundView translator size round =
     let
         textSize =
             case size of
@@ -432,18 +487,74 @@ roundView size round =
                     if String.length w > 13
                     then class "text-sm"
                     else class ""
+                rightSticker =
+                    case size of
+                        Big ->
+                            span
+                                [ class "absolute -top-4 left-6 transform rotate-3 text-sm surface on-surface-text px-2 py-0 pb-1 rounded-lg opacity-60 select-none" ]
+                                [ text (Stamp.toIcon w2.stamp)
+                                , text " "
+                                , text (Stamp.toString w2.stamp)
+                                ]
+                        Small ->
+                            span
+                                [ class "absolute right-0 text-sm px-0 py-0 rounded-lg opacity-50" ]
+                                [ text (Stamp.toIcon w2.stamp)
+                                ]
+                leftSticker =
+                    case size of
+                        Big ->
+                            span
+                                [ class "absolute -top-4 right-6 transform -rotate-3 text-sm surface on-surface-text px-2 py-0  pb-1 rounded-lg opacity-60 select-none" ]
+                                [ text (Stamp.toIcon w1.stamp)
+                                , text " "
+                                , text (Stamp.toString w1.stamp)
+                                ]
+                        Small ->
+                            span
+                                [ class "absolute left-0 text-sm  px-0 py-0 rounded-lg opacity-50" ]
+                                [ text (Stamp.toIcon w1.stamp)
+                                ]
+                stickerClick =
+                    case size of
+                        Big -> onClick (translator.toSelf (SelectSticker w2.id))
+                        Small -> class ""
+                cursorPointer =
+                    case size of
+                        Big -> class "cursor-pointer"
+                        Small -> class ""
+
+
             in
             div
-                [ class "flex justify-center items-center mt-4"]
-                [ span [ class "w-full order-first text-right pr-3 uppercase font-bold", wordSize w1.word] [ text w1.word ]
-                , span [ class "w-full order-last pl-3 uppercase  font-bold", wordSize w2.word] [ text w2.word ]
+                [ class "flex justify-center items-center mt-4 select-none"]
+                [ span
+                    [ class "w-full order-first text-right pr-3 relative", wordSize w1.word]
+                    [ span
+                        [ class "uppercase font-bold"
+                        ]
+                        [ text w1.word ]
+                    , leftSticker
+                    ]
+                , span
+                    [ class "w-full order-last pl-3 relative"
+                    , cursorPointer
+                    , wordSize w2.word
+                    , stickerClick
+                    ]
+                    [ span
+                        [ class "uppercase font-bold"
+                        ]
+                        [ text w2.word ]
+                    , rightSticker
+                    ]
                 , span [ class textSize, class "text-center rounded-full py-1 px-3 primary on-primary-text"] [ text <| String.fromInt <| w1.roundId ]
                 ]
 
 
-oldGuesses : Game.State -> Html msg
-oldGuesses state =
-        state |> Game.payload |> .previousRounds |> List.map (roundView Small) |> div [ class "px-4 pb-4"]
+oldGuesses : Translator msg -> Game.State -> Html msg
+oldGuesses translator state =
+        state |> Game.payload |> .previousRounds |> List.map (roundView translator Small) |> div [ class "px-4 pb-4"]
 
 
 joinChannelSocket : Uid -> Cmd msg

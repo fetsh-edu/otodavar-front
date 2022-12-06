@@ -20,6 +20,19 @@ isIncomplete round =
         Incomplete _ -> True
         _ -> False
 
+
+updateWord : Word -> Round -> Round
+updateWord word round =
+    case round of
+        Incomplete w ->
+            Incomplete (if w.id == word.id then word else w)
+        Complete w1 w2 ->
+            Complete
+                (if w1.id == word.id then word else w1)
+                (if w2.id == word.id then word else w2)
+
+
+
 getWord : Uid -> Round -> Maybe Word
 getWord uid round =
     case round of

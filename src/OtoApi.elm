@@ -31,6 +31,7 @@ routes url__ =
         }
     , word =
         { create = url_ ("/api/v1/words") Nothing
+        , stamp = (\id ->  url_ ("/api/v1/words/" ++ String.fromInt(id) ++ "/stamp" ) Nothing )
         }
     , push = url_ ("/api/v1/users/push") Nothing
     }

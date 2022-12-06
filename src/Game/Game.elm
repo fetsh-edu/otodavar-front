@@ -54,6 +54,28 @@ type alias Payload =
     }
 
 
+updateWord : Word -> Game -> Game
+updateWord word game =
+    case game of
+        RightState state ->
+            case state of
+                Mine l_ mr_ payload_ ->
+                    RightState (Mine l_ mr_ (updateWordInPayload word payload_))
+                Others l_ mr_ payload_ ->
+                    RightState (Others l_ mr_ (updateWordInPayload word payload_))
+        WrongState otoGame ->
+            WrongState (Game.updateWord word otoGame)
+
+
+updateWordInPayload : Word -> Payload -> Payload
+updateWordInPayload word payload_ =
+    { payload_
+    | question = Maybe.map (Round.updateWord word) payload_.question
+    , previousRounds = List.map (Round.updateWord word) payload_.previousRounds
+    }
+
+
+
 type alias Partner = SimpleInfo
 type alias LeftPlayer = SimpleInfo
 type alias RightPlayer = SimpleInfo
