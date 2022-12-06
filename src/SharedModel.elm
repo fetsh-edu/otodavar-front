@@ -18,6 +18,7 @@ type alias SharedModel =
     , currentUrl : Url
     , apiUrl : Url
     , auth : Auth
+    , alertDismissed : Bool
     }
 
 
@@ -29,8 +30,8 @@ type Error
     = ErrCacheParse Decode.Error
     | ErrInfoGet Http.Error
 
-guest : Nav.Key -> Url -> Url-> Url -> SharedModel
-guest key url_ currentUrl apiUrl = SharedModel key url_ False currentUrl apiUrl (Guest Nothing)
+guest : Nav.Key -> Url -> Url-> Url -> Bool -> SharedModel
+guest key url_ currentUrl apiUrl alertDismissed = SharedModel key url_ False currentUrl apiUrl (Guest Nothing) alertDismissed
 
 
 bearer : SharedModel -> Maybe Bearer
@@ -66,19 +67,6 @@ setBrowserNotifications p_ s_ =
     case s_.auth of
         Guest _ -> s_
         LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ p_}
-
-
---disablePushButton : SharedModel -> SharedModel
---disablePushButton s_ =
---    case s_.auth of
---        Guest _ -> s_
---        LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ { oldP_ | buttonDisabled = True } }
-
---enablePushButton : SharedModel -> SharedModel
---enablePushButton s_ =
---    case s_.auth of
---        Guest _ -> s_
---        LoggedIn u_ ns_ oldP_ -> { s_ | auth = LoggedIn u_ ns_ { oldP_ | buttonDisabled = False } }
 
 
 updateNotifications : (Notifications -> Notifications)  -> SharedModel -> SharedModel
@@ -120,6 +108,19 @@ user sm =
         Guest _ ->
             Nothing
 
+
+isSubscribed : SharedModel -> Maybe Bool
+isSubscribed sm =
+    case sm.auth of
+        LoggedIn u _ brN ->
+            let
+                browser = BrowserNotifications.isSubscribed brN
+                telegram = User.info u |> .telegramId |> (==) Nothing |> not
+            in
+                Just (browser || telegram)
+        Guest _ -> Nothing
+
+
 login : User -> Cmd msg
 login user_ =
     storeSession (Just (User.encode user_))
@@ -155,3 +156,5 @@ decode oldModel value =
 
 port storeSession : Maybe Decode.Value -> Cmd msg
 port onSessionChange : (Encode.Value -> msg) -> Sub msg
+
+port dismissAlert : Decode.Value -> Cmd msg

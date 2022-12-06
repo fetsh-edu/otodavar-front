@@ -51,6 +51,7 @@ type Msg
     | ConfirmLogout
     | DeclineLogout
     | Logout
+    | UnsubscribeTelegram
     | UpdateTelegramAuth TelegramAuth
 
 type alias Translator msg =
@@ -95,8 +96,13 @@ update msg model =
         Logout ->
             ( model, SharedModel.logout )
         UpdateTelegramAuth some ->
-            ( { model | saveTelegramResult = Loading }, save HandleTelegramSaved (model.sharedModel) (Encode.object [ ( "telegram_id", TelegramAuth.encode some )]) User.decoderInfo )
-
+            ( { model | saveTelegramResult = Loading }
+            , save HandleTelegramSaved (model.sharedModel) (Encode.object [ ( "telegram_id", TelegramAuth.encode some )]) User.decoderInfo
+            )
+        UnsubscribeTelegram ->
+            ( { model | saveTelegramResult = Loading }
+            , save HandleTelegramSaved (model.sharedModel) (Encode.object [ ( "telegram_id", Encode.null )]) User.decoderInfo
+            )
         HandleTelegramSaved webData ->
             let
                 newModel = { model | saveTelegramResult = webData }
@@ -234,39 +240,45 @@ successView translator me model =
 
 telegramNotifications translator user telegramResult =
     let
+        unsubscribeButton_ =
+            span
+                [ class "w-48 surface-variant on-surface-variant-text flex relative items-center rounded-md drawer-item h-10 px-4 py-6 mx-2 mb-2 cursor-pointer"
+                , onClick (translator.toSelf UnsubscribeTelegram)
+                ]
+                [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off" ]
+                , text "Unsubscribe"
+                ]
         legend =
             case telegramResult of
                 Loading -> [ text "Loading..."]
-                NotAsked ->
-                    case user.telegramId of
-                        Nothing ->
-                            [ text "You are not subscribed"]
-                        Just id ->
-                            [ text "You are subscribed"]
                 Failure e ->
                     case user.telegramId of
                         Nothing ->
-                            [ text "Sliha, we could not update your subscription, you are still not subscribed"]
+                            [ span [ class "text-sm" ] [ text "Sliha, we could not update your subscription, you are still not subscribed"]]
                         Just id ->
-                            [ text "Sliha, we could not update your subscription, you are still subscribed"]
-                Success a ->
+                            [ span [ class "text-sm" ] [ text "Sliha, we could not update your subscription, you are still subscribed"]]
+                _ ->
                     case user.telegramId of
                         Nothing ->
-                            [ text "You are not subscribed"]
+                            [ span [ class "text-sm" ] [ text "You are not subscribed"]]
                         Just id ->
-                            [ text "You are subscribed"]
+                            [ span [ class "text-sm" ] [ text "You are subscribed"]]
     in
     div []
-        [ div [ class "pt-2 pb-4 text-sm" ] legend
-        , div [ class "pt-2"]
-            [ Html.node "telegram-button"
-                [ attribute "data-telegram-login" "OtoDavarBot"
-                , attribute "data-size" "large"
-                , attribute "data-radius" "6"
-                , attribute "data-request-access" "write"
-                , onTelegramAuthChange translator.toSelf
-                ] []
-            ]
+        [ div [ class "pt-2 pb-4" ] legend
+        , case user.telegramId of
+            Nothing ->
+                div [ class "pt-2"]
+                    [ Html.node "telegram-button"
+                        [ attribute "data-telegram-login" "OtoDavarBot"
+                        , attribute "data-size" "large"
+                        , attribute "data-radius" "6"
+                        , attribute "data-request-access" "write"
+                        , onTelegramAuthChange translator.toSelf
+                        ] []
+                    ]
+            Just _ ->
+                unsubscribeButton_
         ]
 
 
@@ -326,7 +338,7 @@ subscribeButton push translator =
     case push of
         Push.NotAsked ->
             span
-                [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2 cursor-pointer"
+                [ class "w-48 surface-variant on-surface-variant-text flex relative items-center rounded-md drawer-item h-10 px-4 py-6 mx-2 mb-2 cursor-pointer"
                 , onClick (translator.toParent Notifications.BrowserNotifications.Subscribe)
                 ]
                 [ span [ class "material-symbols-outlined mr-4" ] [ text "notification_add" ]
@@ -335,7 +347,7 @@ subscribeButton push translator =
         Push.Error string -> text "not asked"
         Push.Subscribed string ->
             span
-                [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2 cursor-pointer"
+                [ class "w-48 surface-variant on-surface-variant-text flex relative items-center rounded-md drawer-item h-10 px-4 py-6 mx-2 mb-2 cursor-pointer"
                 , onClick (translator.toParent Notifications.BrowserNotifications.Unsubscribe)
                 ]
                 [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off" ]
@@ -343,44 +355,9 @@ subscribeButton push translator =
                 ]
         Push.Unsubscribed maybeString ->
             span
-                [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2 cursor-pointer"
+                [ class "w-48 surface-variant on-surface-variant-text flex relative items-center rounded-md drawer-item h-10 px-4 py-6 mx-2 mb-2 cursor-pointer"
                 , onClick (translator.toParent Notifications.BrowserNotifications.Subscribe)
                 ]
                 [ span [ class "material-symbols-outlined mr-4" ] [ text "notification_add" ]
                 , text "Subscribe"
                 ]
-        --                subscribePush icon_ t_ =
-        --                    span
-        --                        [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2"
-        --                        , class cursor
-        --                        , onClick (GotPushMsg Push.Subscribe)
-        --                        , disabled p_.buttonDisabled
-        --                        ]
-        --                        [ span [ class "material-symbols-outlined mr-4" ] [ text icon_]
-        --                        , text t_
-        --                        ]
-        --                unsubscribePush t_ =
-        --                    span
-        --                        [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
-        --                        , class cursor
-        --                        , onClick (GotPushMsg Push.UnSubscribe)
-        --                        , disabled p_.buttonDisabled
-        --                        ]
-        --                        [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off"]
-        --                        , text t_
-        --                        ]
-        --                pushButton =
-        --                    case  p_.state of
-        --                        Push.NotAsked ->
-        --                            subscribePush "notification_add" "Turn on"
-        --                        Push.Unsubscribed _->
-        --                            subscribePush "notification_add" "Turn on"
-        --                        Push.Denied ->
-        --                            subscribePush "notifications_paused" "Blocked for this site"
-        --                        Push.Error a ->
-        --                            subscribePush "notification_important" ("Error" )
-        --                        Push.NotSupported ->
-        --                            text ""
-        --                        Push.Subscribed _ ->
-        --                            unsubscribePush "Turn off"
-

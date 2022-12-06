@@ -29,6 +29,14 @@ type Msg
     | HandlePushResponse (WebData String)
 
 
+isSubscribed : BrowserNotifications -> Bool
+isSubscribed ns =
+    case (ns.push, ns.permission) of
+        (Push.Subscribed _,  Ok Permission.Granted) ->
+            True
+        _ ->
+            False
+
 update : {apiUrl : Url, bearer : Maybe Bearer} -> Msg -> BrowserNotifications -> ( BrowserNotifications, Cmd Msg )
 update p msg model =
     case msg of
@@ -47,19 +55,8 @@ update p msg model =
         GotPushChange push ->
             ( { model | push = push }, save p.apiUrl p.bearer push)
 
-        HandlePushResponse webData ->
+        HandlePushResponse _ ->
             (model, Cmd.none)
-            --( model, webData |> RemoteData.map (save apiUrl bearer) |> RemoteData.withDefault Cmd.none )
-
-            --                let
-            --                    sharedModel = model |> getSharedModel
-            --                    newModel = model |> updateSharedModel (sharedModel |> SharedModel.setPush { state = push, buttonDisabled = False } )
-            --                    newCommand = push |> toCmd (sharedModel.apiUrl) (SharedModel.bearer sharedModel)
-            --                in
-            --                ( newModel
-            --                , newCommand
-            --                )
-
 
 
 save : Url -> Maybe Bearer -> Push -> Cmd Msg
@@ -70,16 +67,7 @@ save apiUrl maybeBearer push =
             case push of
                 Push.NotAsked -> Cmd.none
                 Push.Error _ -> RemoteData.Http.postWithConfig (OtoApi.config bearer) url HandlePushResponse (Decode.string) (Push.encode push)
-                Push.Subscribed string -> RemoteData.Http.postWithConfig (OtoApi.config bearer) url HandlePushResponse (Decode.string) (Push.encode push)
-                Push.Unsubscribed maybeString -> RemoteData.Http.deleteWithConfig (OtoApi.config bearer) url HandlePushResponse (Push.encode push)
+                Push.Subscribed _ -> RemoteData.Http.postWithConfig (OtoApi.config bearer) url HandlePushResponse (Decode.string) (Push.encode push)
+                Push.Unsubscribed _ -> RemoteData.Http.deleteWithConfig (OtoApi.config bearer) url HandlePushResponse (Push.encode push)
     in
     maybeBearer |> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
-
-
---type Msg
-    --=
-    --= GotPushChange Push
-    --| GotPermissionChange (Result Error Permission)
-    --| Subscribe
-    --| UnSubscribe
-    --| HandlePushResponse (WebData String)

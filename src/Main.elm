@@ -67,6 +67,7 @@ type alias Flags =
   { bytes : Maybe (List Int)
   , bearer : Encode.Value
   , apiUrl : String
+  , alertDismissed : Bool
   }
 
 init : Flags -> Url -> Key -> ( Model, Cmd Msg )
@@ -75,7 +76,7 @@ init flags url navKey =
         tokenResult = Login.parseToken url
         maybeBytes = Maybe.map convertBytes flags.bytes
         apiUrl = Url.fromString flags.apiUrl |> Maybe.withDefault OtoApi.defaultApiUrl
-        sharedModel url_ = SharedModel.decode (SharedModel.guest navKey url_ url_ apiUrl) flags.bearer
+        sharedModel url_ = SharedModel.decode (SharedModel.guest navKey url_ url_ apiUrl flags.alertDismissed) flags.bearer
     in
     case (tokenResult, maybeBytes) of
         (OAuth.Error error, _) ->
@@ -258,6 +259,10 @@ update msg model =
             ((model |> getSharedModel |> (\x -> { x | drawer = False } ) |> updateSharedModel) model, Cmd.none)
         (ShowDrawer, _) ->
             ((model |> getSharedModel |> (\x -> { x | drawer = True } ) |> updateSharedModel) model, Cmd.none)
+        (AlertDismiss, _) ->
+            ( (model |> getSharedModel |> (\x -> { x | alertDismissed = True } ) |> updateSharedModel) model
+            , SharedModel.dismissAlert (Encode.bool True)
+            )
         (GotBrowserNotificationsMsg subMsg, _) ->
             let
                 subToModel sub =
@@ -406,6 +411,28 @@ header_ model =
                 ]
             ]
         , div [ class "secondary-text text-sm md:text-base pt-2 justify-center"] [ text "The game you've been waiting for so long"]
+        , div []
+            [ case model |> getSharedModel |> SharedModel.isSubscribed of
+                Nothing -> text ""
+                Maybe.Just subscribed ->
+                    if subscribed || (model |> getSharedModel |> .alertDismissed)
+                    then text ""
+                    else
+                        div [class "relative flex flex-col min-w-0 break-words w-full mt-4 mb-2 shadow-xl rounded-lg surface-1 secondary-text text-sm p-4 pb-3"]
+                            [ text "We think you don't get notifications from our game. Please subscribe for a better experience."
+                            , div
+                                [ class "flex flex-row justify-center mt-3"]
+                                [ a
+                                    [ Route.href Route.ProfileEdit
+                                    , class "surface-variant on-surface-variant-text flex items-center rounded-md drawer-item px-3 py-1 cursor-pointer mx-1"
+                                    ] [ text "Subscribe" ]
+                                , span
+                                    [ onClick AlertDismiss
+                                    , class "surface-variant on-surface-variant-text flex items-center rounded-md drawer-item px-3 py-1 cursor-pointer mx-1"
+                                    ] [ text "Dismiss" ]
+                                ]
+                            ]
+            ]
         , modal model
         , drawer model
         ]

@@ -33,4 +33,5 @@ type Msg
     | ShowNotifications
     | HideDrawer
     | ShowDrawer
+    | AlertDismiss
     | LaunchGame (Maybe Uid)

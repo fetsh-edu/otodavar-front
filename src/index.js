@@ -13,6 +13,7 @@ const {Elm} = require('./Main');
 const bytesKey = "bytes"
 const bearerKey = "bearer"
 const infoKey = "info"
+const alertDismissedKey = "alertDismissed"
 
 
 function getTheme() {
@@ -71,9 +72,20 @@ const buildBearerInfo = (a, b) => {
     }
 }
 
+
+const isAlertDismissed = () => {
+    let val = JSON.parse(localStorage.getItem(alertDismissedKey))
+    if (val === null) {
+        return false;
+    } else {
+        return val;
+    }
+}
+
 const flags = {
     bytes: rememberedBytes(),
     bearer: buildBearerInfo(localStorage.getItem(bearerKey), localStorage.getItem(infoKey)),
+    alertDismissed: isAlertDismissed(),
     apiUrl: apiUrl
 }
 
@@ -81,7 +93,7 @@ var app = Elm.Main.init({flags: flags});
 
 
 app.ports.toggleDarkMode.subscribe(() => { toggleDarkMode() });
-
+app.ports.dismissAlert.subscribe((val) => localStorage.setItem(alertDismissedKey, JSON.stringify(val)) )
 
 // PWA STUFF
 
