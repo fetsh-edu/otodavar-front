@@ -429,7 +429,7 @@ roundView size round =
         Complete w1 w2 ->
             let
                 wordSize w =
-                    if String.length w > 14
+                    if String.length w > 13
                     then class "text-sm"
                     else class ""
             in
