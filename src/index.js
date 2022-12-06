@@ -17,12 +17,19 @@ const alertDismissedKey = "alertDismissed"
 
 
 function getTheme() {
-    var theme="light";    //default to light
-    if(localStorage.getItem("theme") && localStorage.getItem("theme") == "dark"){
-        var theme = "dark";
-    } else if(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+
+    var theme = "light";
+
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         var theme = "dark";
     }
+    
+    if (localStorage.getItem("theme") && localStorage.getItem("theme") == "dark"){
+        var theme = "dark";
+    } else if (localStorage.getItem("theme") && localStorage.getItem("theme") == "light") {
+        var theme = "light";
+    }
+
     return theme;
 }
 
