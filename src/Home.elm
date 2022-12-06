@@ -75,17 +75,12 @@ view translator { session, home } =
 
 loadingContent =
     let
-        fakeSection list =
+        fakeSection header list =
             div
             [ class "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-1-text"]
-            [ div [ class "rounded-t-lg py-2 px-4 font-bold surface-1"] [ text nbsp ]
+            [ div [ class "rounded-t-lg py-2 px-4 font-bold surface-1 on-surface-variant-text text-center uppercase"] [ text header ]
             , div [] list
             ]
-        fakeItem text_ =
-            div
-                [ class "flex flex-row items-center uppercase on-surface-variant-text align-center justify-center items-center h-16"]
-                [ span [ class "m-2"] [ span [] [text text_] ]
-                ]
         fakeButton title_ text_ =
             div
                 [ class "flex flex-row items-center surface-3-text"]
@@ -95,9 +90,9 @@ loadingContent =
     in
     [ View.Helper.container
         [ div [ class "animate-pulse"]
-            [ fakeSection [ fakeItem "Loading" ]
-            , fakeSection [ fakeButton "add_circle" "Play a Friend", fakeButton "auto_awesome" "Play a Random Partner" ]
-            , fakeSection [ fakeButton "" "", fakeButton "" "", fakeButton "" "", fakeButton "" "" ]
+            [ fakeSection nbsp [ fakeButton "" "" ]
+            , fakeSection "Loading" [ fakeButton "add_circle" "Play a Friend", fakeButton "auto_awesome" "Play a Random Partner" ]
+            , fakeSection nbsp [ fakeButton "" "", fakeButton "" "", fakeButton "" "", fakeButton "" "" ]
             ]
         ]
     ]
