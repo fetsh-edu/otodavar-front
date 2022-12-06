@@ -7,6 +7,7 @@
     --md-sys-color-on-surface-dark-rgb: 235 255 217;
 }
 :root.dark {
+    --md-sys-color-primary-rgb: var(--md-sys-color-primary-dark-rgb);
     --md-sys-color-surface-1: rgb(var(--md-sys-color-primary-rgb) / 0.05);
     --md-sys-color-surface-2: rgb(var(--md-sys-color-primary-rgb) / 0.1);
     --md-sys-color-surface-3: rgb(var(--md-sys-color-primary-rgb) / 0.2);
@@ -14,6 +15,7 @@
     --md-sys-color-on-surface-200: rgb(var(--md-sys-color-on-surface-dark-rgb) / 0.05);
 }
 :root, :root.light {
+    --md-sys-color-primary-rgb: var(--md-sys-color-primary-light-rgb);
     --md-sys-color-surface-1: rgb(var(--md-sys-color-primary-rgb) / 0.05);
     --md-sys-color-surface-2: rgb(var(--md-sys-color-primary-rgb) / 0.1);
     --md-sys-color-surface-3: rgb(var(--md-sys-color-primary-rgb) / 0.2);
