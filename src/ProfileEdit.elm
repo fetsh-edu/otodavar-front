@@ -2,7 +2,7 @@ port module ProfileEdit exposing (..)
 
 import Browser exposing (Document)
 import Html exposing (Attribute, Html, button, div, img, input, span, text)
-import Html.Attributes exposing (attribute, autofocus, class, src, style, value)
+import Html.Attributes exposing (attribute, autofocus, class, disabled, src, style, value)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -151,7 +151,7 @@ successView translator me model =
                     then
                         div
                             [ class "flex flex-row items-center mt-8" ]
-                            [ span [ class "mr-4"] [ text "Are you sure?" ]
+                            [ span [ class "mr-4"] [ text "Sure?" ]
                             , button
                                 [ class "font-bold inline-block flex items-center leading-normal uppercase text-xs rounded outline-none focus:outline-none"
                                 , class "primary on-primary-text"
@@ -191,11 +191,31 @@ successView translator me model =
                                 , class "primary on-primary-text"
                                 , class "filter drop-shadow"
                                 , class "px-4 h-10"
+                                , disabled
+                                    (case  model.saveNameResult of
+                                        Loading -> True
+                                        _ -> False
+                                    )
                                 , onClick (translator.toSelf SaveName)
                                 ]
                                 [ span [ class "text-base material-symbols-outlined mr-2" ][ text "save_as"]
                                 , text "Save"
                                 ]
+                            , case model.saveNameResult of
+                                Loading ->
+                                    span
+                                        [ class "text-base animate-spin flex justify-center items-center material-symbols-outlined mr-0" ]
+                                        [ text "refresh"]
+                                Failure e ->
+                                    span
+                                        [ class "text-base flex justify-center items-center material-symbols-outlined mr-0" ]
+                                        [ text "error"]
+                                Success e ->
+                                    span
+                                        [ class "text-base flex justify-center items-center material-symbols-outlined mr-0" ]
+                                        [ text "task_alt"]
+                                NotAsked ->
+                                    text ""
                             ]
                 ]
             ]

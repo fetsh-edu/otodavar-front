@@ -412,6 +412,8 @@ shareButton userInfo session =
         , class "whitespace-nowrap px-4 py-2 m-1 mb-1"
         , class "filter drop-shadow"
         , class "cursor-pointer"
+        , class "active:bg-green-700"
+        , class "active:px-5"
         ]
         [ span
             [ class "material-symbols-outlined md-18 mr-2" ]

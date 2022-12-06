@@ -80,7 +80,7 @@ decoder =
     Decode.map User
         (Decode.map2 Internals
             (Decode.field "bearer" Bearer.decoder)
-            (Decode.field "info" decoderUserInfo))
+            (Decode.field "info" decoderInfo))
 
 decoderNullable : Decoder (Maybe User)
 decoderNullable = Decode.nullable decoder
@@ -93,26 +93,12 @@ encodeUserInfo uInfo =
         , ( "avatar", Avatar.encode uInfo.avatar )
         , ( "name", Name.encode uInfo.name )
         , ( "friend_status", FriendStatus.encode uInfo.friendStatus )
-        , ( "telegram_id",
-            case uInfo.telegramId of
+        , ( "telegram_id"
+          , case uInfo.telegramId of
                 Nothing -> Encode.null
                 Just some -> Encode.int some
           )
         ]
-
-
-decoderUserInfo : Decoder SimpleInfo
-decoderUserInfo =
-    Decode.map6 SimpleInfo
-        (Decode.field "email" Email.decoder)
-        (Decode.field "uid" Uid.decoder)
-        (Decode.field "avatar" Avatar.decoder)
-        (Decode.field "name" Name.decoder)
-        (Decode.field "friend_status" FriendStatus.decoder)
-        (Decode.oneOf
-             [ Decode.field "telegram_id" (Decode.nullable Decode.int)
-             , Decode.succeed Nothing
-             ])
 
 decoderInfo : Decoder SimpleInfo
 decoderInfo =
