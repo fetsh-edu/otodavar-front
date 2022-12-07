@@ -11,6 +11,10 @@ body {
     margin-right: auto;
 }
 
+.border-on-tertiary-container {
+  border-color: rgb(var(--md-sys-color-on-tertiary-container-rgb) / 0.5);
+}
+
 .invisible-click:active, .invisible-click:focus  {
   -webkit-tap-highlight-color: rgba(0,0,0,0);
 }

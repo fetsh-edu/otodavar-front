@@ -529,6 +529,10 @@ roundView translator size round =
                     case size of
                         Big -> class "cursor-pointer"
                         Small -> class ""
+                dashedBorder =
+                    case size of
+                        Big -> class "border-0 border-b border-dashed border-on-tertiary-container"
+                        Small -> class ""
 
 
             in
@@ -550,6 +554,7 @@ roundView translator size round =
                     ]
                     [ span
                         [ class "uppercase font-bold"
+                        , dashedBorder
                         ]
                         [ text w2.word ]
                     , rightSticker
