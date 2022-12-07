@@ -488,33 +488,39 @@ roundView translator size round =
                     then class "text-sm"
                     else class ""
                 rightSticker =
-                    case size of
-                        Big ->
-                            span
-                                [ class "absolute -top-4 left-6 transform rotate-3 text-sm surface on-surface-text px-2 py-0 pb-1 rounded-lg opacity-60 select-none" ]
-                                [ text (Stamp.toIcon w2.stamp)
-                                , text " "
-                                , text (Stamp.toString w2.stamp)
-                                ]
-                        Small ->
-                            span
-                                [ class "absolute right-0 text-sm px-0 py-0 rounded-lg opacity-50" ]
-                                [ text (Stamp.toIcon w2.stamp)
-                                ]
+                    case w2.stamp of
+                        Stamp.Nothing -> text ""
+                        _ ->
+                            case size of
+                                Big ->
+                                    span
+                                        [ class "absolute -top-4 left-6 transform rotate-3 text-sm surface on-surface-text px-2 py-0 pb-1 rounded-lg opacity-60 select-none" ]
+                                        [ text (Stamp.toIcon w2.stamp)
+                                        , text " "
+                                        , text (Stamp.toString w2.stamp)
+                                        ]
+                                Small ->
+                                    span
+                                        [ class "absolute right-0 text-sm px-0 py-0 rounded-lg opacity-50" ]
+                                        [ text (Stamp.toIcon w2.stamp)
+                                        ]
                 leftSticker =
-                    case size of
-                        Big ->
-                            span
-                                [ class "absolute -top-4 right-6 transform -rotate-3 text-sm surface on-surface-text px-2 py-0  pb-1 rounded-lg opacity-60 select-none" ]
-                                [ text (Stamp.toIcon w1.stamp)
-                                , text " "
-                                , text (Stamp.toString w1.stamp)
-                                ]
-                        Small ->
-                            span
-                                [ class "absolute left-0 text-sm  px-0 py-0 rounded-lg opacity-50" ]
-                                [ text (Stamp.toIcon w1.stamp)
-                                ]
+                    case w1.stamp of
+                        Stamp.Nothing -> text ""
+                        _ ->
+                            case size of
+                                Big ->
+                                    span
+                                        [ class "absolute -top-4 right-6 transform -rotate-3 text-sm surface on-surface-text px-2 py-0  pb-1 rounded-lg opacity-60 select-none" ]
+                                        [ text (Stamp.toIcon w1.stamp)
+                                        , text " "
+                                        , text (Stamp.toString w1.stamp)
+                                        ]
+                                Small ->
+                                    span
+                                        [ class "absolute left-0 text-sm  px-0 py-0 rounded-lg opacity-50" ]
+                                        [ text (Stamp.toIcon w1.stamp)
+                                        ]
                 stickerClick =
                     case size of
                         Big -> onClick (translator.toSelf (SelectSticker w2.id))
@@ -537,7 +543,7 @@ roundView translator size round =
                     , leftSticker
                     ]
                 , span
-                    [ class "w-full order-last pl-3 relative"
+                    [ class "w-full order-last pl-3 relative invisible-click"
                     , cursorPointer
                     , wordSize w2.word
                     , stickerClick

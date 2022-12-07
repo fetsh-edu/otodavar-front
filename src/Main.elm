@@ -385,14 +385,14 @@ header_ model =
     header [class "flex flex-col container md:max-w-5xl px-4 select-none"]
         [ div [ class "flex flex-row w-full justify-between"]
             [ span
-                [ class "cursor-pointer surface-1 on-surface-variant-text letter w-10 h-10 md:w-12 md:h-12 filter drop-shadow"
+                [ class "cursor-pointer surface-1 on-surface-variant-text letter w-10 h-10 md:w-12 md:h-12 filter drop-shadow invisible-click"
                 , onClick ShowDrawer
                 ]
                 [ span [ class "material-symbols-outlined md-18" ] [ text "menu" ] ]
             , div
                 [ class "flex flex-row items-center" ]
                 [ a
-                    [ Route.href Route.Home ]
+                    [ Route.href Route.Home, class "invisible-click" ]
                     [ span [ class "tertiary-container on-tertiary-container-text letter w-8 h-8 md:w-10 md:h-10"] [ text "o" ]
                     , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter w-8 h-8 md:w-10 md:h-10"] [ text "t" ]
                     , span [ class "-ml-1.5 tertiary-container on-tertiary-container-text  letter w-8 h-8 md:w-10 md:h-10"] [ text "o" ]
@@ -404,7 +404,7 @@ header_ model =
                     ]
                 ]
             , span
-                [ class "cursor-pointer surface-1 on-surface-variant-text letter filter drop-shadow w-10 h-10 md:w-12 md:h-12"
+                [ class "cursor-pointer surface-1 on-surface-variant-text letter filter drop-shadow w-10 h-10 md:w-12 md:h-12 invisible-click"
                 , onClick ShowNotifications]
                 [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ]
                 , notificationPill

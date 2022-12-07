@@ -11,6 +11,10 @@ body {
     margin-right: auto;
 }
 
+.invisible-click:active, .invisible-click:focus  {
+  -webkit-tap-highlight-color: rgba(0,0,0,0);
+}
+
 .notifications-container {
   border-color: var(--md-sys-color-surface);
 }
