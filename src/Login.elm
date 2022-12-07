@@ -7,8 +7,8 @@ import Browser.Navigation as Navigation
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Dict
-import Html exposing (Html, div, img, span, text)
-import Html.Attributes exposing (class, src, style)
+import Html exposing (Html, a, div, img, p, span, text)
+import Html.Attributes exposing (class, href, src, style, target)
 import Html.Events exposing (onClick)
 import Http exposing (Error(..), Expect, expectStringResponse)
 import Json.Decode as Decode exposing (field)
@@ -25,6 +25,7 @@ import User.Bearer exposing (Bearer(..))
 import User.Config exposing (configuration)
 import User.Name as Name
 import User.User as User exposing (User, decoderSimpleInfo2)
+import View.Helper
 
 type alias Model =
     { sharedModel : SharedModel
@@ -59,8 +60,8 @@ type Error
 
 type Msg
     = SignInRequested
-    | GotInitAuthError Error
     | GotRandomBytes (List Int)
+    | GotInitAuthError Error
     | GotGoogleToken IdToken
     | GotOtoUser (Result Http.Error User)
 
@@ -70,58 +71,77 @@ type alias Translator msg =
 
 view : Translator msg -> Model -> Document msg
 view translator model =
-    let
-        container some =
-            div [ class "flex mt-32 justify-center items-center"]
-                [ some ]
-        content =
-            case model.flow of
-                WithGoogleToken _ ->
-                    text "Got Google Token" |> container
-
-                WithOtoUser _ ->
-                    text "Got User" |> container
-
-                WithSession sharedModel ->
-                    case sharedModel.auth of
-                        SharedModel.LoggedIn u_ _ _ ->
-                            u_ |> User.info |> .name |> Name.toString |> (++) "You are logged in as " |> text |> container
-                        SharedModel.Guest Nothing ->
-                            div []
-                                [ div [] [ text "You are a Guest" ]
-                                , signInButton translator
-                                ]
-                                |> container
-                        SharedModel.Guest (Just er_) ->
-                            div []
-                                [ div [] [ text "You are a Guest because there were errors." ]
-                                , signInButton translator
-                                ]
-                                |> container
-
-                Erred error ->
-                    errorView error
-
-                GeneratingSecret ->
-                    text "Generating secret" |> container
-
-                SecretGenerated _ ->
-                    text "Secret generated" |> container
-
-    in
     { title = "Login"
-    , body = [content]
+    , body = contentView translator model
     }
+
+contentView translator model =
+    [ View.Helper.container
+        [ View.Helper.section
+            "Login" "tertiary-container tertiary-text uppercase text-center"
+            [div [ class "p-8 flex justify-center"] (loginSection translator model.flow)]
+        , View.Helper.section
+            "The game" "secondary-container secondary-text uppercase text-center"
+            [ div
+                [ class "p-4 sm:p-8 text-sm text" ]
+                [ p [ class "pb-4" ]
+                    [ text "Almost ten years ago the music band “OK Go” released a game called "
+                    , a [ class "underline primary-text", target "_blank", href "https://www.youtube.com/watch?v=2sP1DqyagXE" ] [ text "“Say the Same Thing”" ]
+                    , text ". It was greatly entertaining and addictive but then vanished. So here we have an hommage."
+                    ]
+                ]
+            ]
+        , View.Helper.section
+            "Rules" "primary-container primary-text uppercase text-center"
+            [ div
+                [ class "p-4 sm:p-8 text-sm text" ]
+                [ p [ class "pb-4" ] [ text "Oto|davar — is a cooperative game of words where every player wins, and no one loses. All you have to do is say the same word with your partner." ]
+                , p [ class "pb-4" ] [ text "The rules are simple: you start by saying a word. Any word. A random word. So as your partner. You’ll have an accidental pair of words. And now you have your round zero, where all the fun begins." ]
+                , p [ class "pb-4" ] [ text "Just go again. But this time try to say the same word with your partner: find something that connects the first two words, something they have in common. Or even something you think your partner would think they have in common 🙂"]
+                , p [ class "pb-4" ] [ text "It’s fun to see the way someone else thinks. You’ll smile, you’ll have facepalms, you’ll laugh, and even scream in frustration!"]
+                ]
+            ]
+        ]
+    ]
+
+
+loginSection translator flow =
+    let
+        progress widthClass =
+            [ div
+                [ class "flex w-full h-2 secondary-container animate-pulse"]
+                [ span
+                    [ class "primary transition-all ease-in-out"
+                    , widthClass
+                    ] []
+                ]
+            ]
+    in
+    case flow of
+        GeneratingSecret -> progress (class "w-0")
+        SecretGenerated _ -> progress (class "w-1/4")
+        WithGoogleToken _ -> progress (class "w-2/4")
+        WithOtoUser _ -> progress (class "w-3/4")
+        Erred error -> [errorView error]
+        WithSession sharedModel ->
+            case sharedModel.auth of
+                SharedModel.LoggedIn u_ _ _ -> progress (class "w-full")
+                SharedModel.Guest Nothing -> [ signInButton translator ]
+                SharedModel.Guest (Just _) ->
+                    [ div [class "flex flex-col"]
+                        [ signInButton translator
+                        , div
+                            [ class "text-center text-sm on-error-container-text mt-5" ]
+                            [ text "Login failed." ]
+                        ]
+                    ]
 
 
 errorView : Error -> Html msg
 errorView error =
-    div [ class "flex m-10 justify-center items-center"]
-        [ div [ class "w-full md:w-1/2 error-container on-error-container-text rounded-lg flex flex-row p-4 mb-8 text-sm shadow-md focus:outline-none focus:shadow-outline-purple" ]
-            [ span [class "material-symbols-outlined md-18"] [ text "error" ]
-            , span [ class "ml-3 w-full overflow-ellipsis overflow-hidden" ] [ viewError error ]
-            ]
-        ]
+    div
+        [ class "text-center text-sm on-error-container-text" ]
+        [ viewError error ]
 
 
 viewError : Error -> Html msg
@@ -174,10 +194,10 @@ update msg model =
     case msg of
         SignInRequested ->
             ({ model | flow = GeneratingSecret}, genRandomBytes 16)
-        GotInitAuthError er ->
-            ( { model | flow = Erred er}, Cmd.none )
         GotRandomBytes bytes ->
             gotRandomBytes { model | flow = SecretGenerated bytes} bytes
+        GotInitAuthError er ->
+            ( { model | flow = Erred er}, Cmd.none )
         GotGoogleToken idToken ->
             ( { model | flow = WithGoogleToken idToken }, getOtoBearer (model |> toSession |> .apiUrl) GotOtoUser idToken)
         GotOtoUser (Err error) ->

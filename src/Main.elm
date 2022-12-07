@@ -403,12 +403,15 @@ header_ model =
                     , span [ class "-ml-1.5 secondary-container on-secondary-container-text letter w-8 h-8 md:w-10 md:h-10"] [ text "r" ]
                     ]
                 ]
-            , span
-                [ class "cursor-pointer surface-1 on-surface-variant-text letter filter drop-shadow w-10 h-10 md:w-12 md:h-12 invisible-click"
-                , onClick ShowNotifications]
-                [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ]
-                , notificationPill
-                ]
+            , if model |> getSharedModel |> SharedModel.isGuest
+                then span [class "w-10 h-10"] []
+                else
+                    span
+                    [ class "cursor-pointer surface-1 on-surface-variant-text letter filter drop-shadow w-10 h-10 md:w-12 md:h-12 invisible-click"
+                    , onClick ShowNotifications]
+                    [ span [ class "material-symbols-outlined md-18" ] [ text "notifications" ]
+                    , notificationPill
+                    ]
             ]
         , div [ class "secondary-text text-sm md:text-base pt-2 justify-center"] [ text "The game you've been waiting for so long"]
         , div []
