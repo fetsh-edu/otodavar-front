@@ -186,10 +186,9 @@ view sGame =
                     case partner of
                         Just some ->
                             span
-                                [ class "ml-2 flex-1 py-3 flex flex-col whitespace-nowrap"]
+                                [ class "ml-2 flex-1 py-3 flex flex-col whitespace-nowrap overflow-hidden fade-right relative"]
                                 [ span [class "font-bold"] [text (Name.toString some.name)]
                                 , p_
-                                    --|> Debug.log "payload"
                                     |> .question
                                     |> Maybe.map Round.id
                                     |> Maybe.withDefault 0
@@ -226,7 +225,7 @@ view sGame =
 gameWidget : Uid -> Html msg -> Html msg -> Html msg -> Html msg
 gameWidget uid_ picture partnerRound words =
     a
-        [ class "flex flex-row items-center"
+        [ class "flex flex-row items-center invisible-click"
         , Route.href (uid_ |> Route.Game)
         ]
         [ picture

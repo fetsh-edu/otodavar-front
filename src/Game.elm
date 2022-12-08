@@ -547,7 +547,7 @@ roundView translator size round =
                     , leftSticker
                     ]
                 , span
-                    [ class "w-full order-last pl-3 relative invisible-click"
+                        [ class "w-full order-last pl-3 relative invisible-click"
                     , cursorPointer
                     , wordSize w2.word
                     , stickerClick

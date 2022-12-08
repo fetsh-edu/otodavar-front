@@ -132,16 +132,16 @@ playButtonsSection a mbGame action=
 playAFriendButton : { a | uid : Uid} -> Html msg
 playAFriendButton me =
     div
-        [ class "flex flex-row items-center"]
+        [ class "flex flex-row items-center "]
         [ a
             [ Route.href (me |> .uid |> Route.Profile)
-            , class "h-12 w-12 m-2"
+            , class "h-12 w-12 m-2 invisible-click"
             ]
             [ span [ class "material-symbols-outlined md-48" ][ text "add_circle" ]
             ]
         , a
             [ Route.href (me |> .uid |> Route.Profile)
-            , class "ml-2 flex-1 py-3"
+            , class "ml-2 flex-1 py-3 invisible-click"
             ]
             [ span
                 []
@@ -154,13 +154,13 @@ playARandomButton action =
     div
         [ class "flex flex-row items-center"]
         [ span
-            [ class "h-12 w-12 m-2 cursor-pointer"
+            [ class "h-12 w-12 m-2 cursor-pointer invisible-click"
             , onClick (action Nothing)
             ]
             [ span [ class "material-symbols-outlined md-48" ][ text "auto_awesome" ]
             ]
         , span
-            [ class "ml-2 flex-1 py-3  cursor-pointer"
+            [ class "ml-2 flex-1 py-3  cursor-pointer invisible-click"
             , onClick (action Nothing)
             ]
             [ span [] [text "Play a Random Partner"]

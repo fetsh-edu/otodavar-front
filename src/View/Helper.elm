@@ -43,9 +43,14 @@ errorView header_ description_ =
         ]
 
 
-
 container : List (Html msg) -> Html msg
-container = div [class "profile-page container mx-auto px-4 mt-6 sm:mt-14 md:mt-18 md:max-w-5xl pb-4"]
+container = container_ []
+
+container_ : List (Html.Attribute msg) -> List (Html msg) -> Html msg
+container_ classes =
+    div
+        ([ class "profile-page container mx-auto px-4 mt-6 sm:mt-14 md:mt-18 md:max-w-5xl pb-4"
+        ] ++ classes)
 
 section : String -> String -> List (Html msg) -> Html msg
 section title_ class_ list =

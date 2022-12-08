@@ -179,7 +179,7 @@ loadingContent =
         counters = [ fakeCounter, fakeCounter]
         title_ = h5 [ class "text-xl sm:text-2xl font-semibold leading-normal sm:mb-14 text-slate-700 mb-3 on-surface-variant-text"] [ text "Loading" ]
     in
-    div [class "profile-page container mx-auto px-4 mt-6 md:mt-28 md:max-w-5xl"]
+    View.Helper.container_ [class "md:mt-28"]
         [ profileHead (Just (class "animate-pulse")) avatar actionButtons counters title_
         ]
 
@@ -237,7 +237,7 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser fr =
         title_ = h3 [ class "text-xl sm:text-4xl font-semibold leading-normal sm:mb-14 text-slate-700 mb-3"] [ text (Name.toString pageUser.name) ]
 
     in
-    div [class "profile-page container mx-auto px-4 mt-6 md:mt-28 md:max-w-5xl"]
+    View.Helper.container_ [class "md:mt-28"]
             [ profileHead Nothing avatar actionButtons counters title_
             , incomingRequests translator me pageUser
             , friendsList translator me pageUser
@@ -379,7 +379,7 @@ friendView actionButton_ other =
         [ class "flex flex-row items-center"]
         [ a
             [ Route.href (other |> .uid |> Route.Profile)
-            , class "h-12 w-12 m-2"
+            , class "h-12 w-12 m-2 invisible-click"
             ]
             [ img
                 [ src (Avatar.toString other.avatar)
@@ -389,7 +389,7 @@ friendView actionButton_ other =
             ]
         , a
             [ Route.href (other |> .uid |> Route.Profile)
-            , class "ml-2 flex-1 py-3"
+            , class "ml-2 flex-1 py-3 invisible-click"
             ]
             [ span
                 []

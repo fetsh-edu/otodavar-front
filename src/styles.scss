@@ -5,10 +5,16 @@ body {
   background-color: var(--md-sys-color-surface);
   color: var(--md-sys-color-on-surface);
 }
+
 .container {
     //max-width: 800px;
     margin-left: auto;
     margin-right: auto;
+}
+
+.from-white {
+  --tw-gradient-from: var(--md-sys-color-surface);
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, rgba(255, 255, 255, 0));
 }
 
 .border-on-tertiary-container {
