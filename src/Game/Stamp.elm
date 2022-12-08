@@ -12,6 +12,7 @@ type Stamp
     | Monkey
     | Love
     | Party
+    | ButHow
 
 decoder : Decode.Decoder Stamp
 decoder =
@@ -30,6 +31,7 @@ encode stamp =
             Monkey -> "monkey"
             Love -> "love"
             Party -> "party"
+            ButHow -> "buthow"
         )
 
 
@@ -44,6 +46,7 @@ all =
     , Monkey
     , Love
     , Party
+    , ButHow
     ]
 
 fromString : String -> Stamp
@@ -58,6 +61,7 @@ fromString str =
         "monkey" -> Monkey
         "love" -> Love
         "party" -> Party
+        "buthow" -> ButHow
         _ -> Nothing
 
 toString : Stamp -> String
@@ -72,6 +76,7 @@ toString str =
         Monkey -> "noooo!"
         Love -> "love"
         Party -> "whoo-hoo!"
+        ButHow -> "..but how?"
 
 toIcon : Stamp -> String
 toIcon str =
@@ -85,3 +90,4 @@ toIcon str =
         Monkey -> "🙈"
         Love -> "😍"
         Party -> "🥳"
+        ButHow -> "🤷"
