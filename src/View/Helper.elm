@@ -106,10 +106,14 @@ rules =
         ]
 
 -- BUTTONS
-playAgainButton : msg -> Html msg
-playAgainButton msg =
+playAgainButton : msg -> Bool -> Html msg
+playAgainButton msg sticky =
     div
-        [ class "sticky bottom-0 right-0 left-0 container w-full" ]
+        [ class "bottom-0 right-0 left-0 container w-full"
+        , if sticky
+            then class "sticky"
+            else class ""
+        ]
         [ span
             [ class "justify-center flex w-full" ]
             [ span

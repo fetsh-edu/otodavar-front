@@ -261,7 +261,7 @@ successContent translator guessText guessData state stickerSelect =
             , onGuessChangeMsg = translator.toSelf << OnGuessChange
             }
     in
-    [View.Helper.container (Game.gameView gameViewTranslator stickerSelect guessText guessData state)]
+    [View.Helper.container (Game.gameView gameViewTranslator stickerSelect guessText guessData state True)]
 
 joinChannelSocket : Uid -> Cmd msg
 joinChannelSocket gameUid =

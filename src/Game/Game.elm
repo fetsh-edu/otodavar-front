@@ -239,8 +239,8 @@ type alias Translator msg =
     , onGuessChangeMsg : (String -> msg)
     }
 
-gameView : Translator msg -> Maybe { b | wordId : c } -> String -> WebData Game -> State -> List (Html msg)
-gameView translator stickerSelect guessText guessData state =
+gameView : Translator msg -> Maybe { b | wordId : c } -> String -> WebData Game -> State -> Bool -> List (Html msg)
+gameView translator stickerSelect guessText guessData state sticky =
     let
         stickersSelect =
             case stickerSelect of
@@ -264,7 +264,7 @@ gameView translator stickerSelect guessText guessData state =
         ]
     , case (state |> payload |> .status, state |> opponent) of
         (Closed, Just opponent_) ->
-            View.Helper.playAgainButton (translator.playAgainMsg opponent_.uid)
+            View.Helper.playAgainButton (translator.playAgainMsg opponent_.uid) sticky
         _ -> text ""
     ]
 

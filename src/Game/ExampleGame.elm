@@ -195,7 +195,7 @@ view toSelf model =
     case model.game of
        Game.WrongState _ -> Html.text ""
        Game.RightState state ->
-           Html.div [] (Game.gameView translator model.stickerSelect model.guessText model.guessData state)
+           Html.div [] (Game.gameView translator model.stickerSelect model.guessText model.guessData state False)
 
 
 
