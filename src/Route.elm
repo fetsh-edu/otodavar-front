@@ -13,6 +13,7 @@ type Route
     | ProfileEdit
     | Game Uid
     | Login
+    | About
 
 
 parser : Parser (Route -> a) a
@@ -23,17 +24,20 @@ parser =
         , Parser.map Profile (s "u" </> Parser.map Uid Parser.string)
         , Parser.map Game (s "g" </> Parser.map Uid Parser.string)
         , Parser.map Login (s "login")
+        , Parser.map About (s "about")
         ]
 
 
 isProtected : Route -> Bool
 isProtected route =
     case route of
+        Login -> False
         Home -> True
         Profile _ -> True
         Game _ -> True
         ProfileEdit -> True
-        Login -> False
+        About -> True
+
 
 href : Route -> Attribute msg
 href targetRoute =
@@ -58,6 +62,8 @@ routeToString page =
                 Game uid -> [ "g", Uid.toString uid ]
                 Login   -> [ "login" ]
                 ProfileEdit -> [ "profile" ]
+                About -> ["about"]
+
 
     in
     "/" ++ String.join "/" pieces

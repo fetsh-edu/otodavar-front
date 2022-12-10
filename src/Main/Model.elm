@@ -13,6 +13,7 @@ type Model
     | Profile Profile.Model
     | Game Game.Model
     | ProfileEdit ProfileEdit.Model
+    | About SharedModel
 
 
 getSharedModel : Model -> SharedModel
@@ -23,12 +24,14 @@ getSharedModel page =
         Profile profile -> Profile.toSession profile
         Game game -> Game.toSession game
         ProfileEdit some ->  some.sharedModel
+        About some -> some
 
 updateSharedModel : SharedModel -> Model -> Model
-updateSharedModel session_ model =
+updateSharedModel sharedModel model =
     case model of
-        Home subModel ->  subModel |> Home.updateSession session_ |> Home
-        Login subModel ->  subModel |> Login.updateSession session_ |> Login
-        Profile subModel ->  subModel |> Profile.updateSession session_ |> Profile
-        Game subModel ->  subModel |> Game.updateSession session_ |> Game
-        ProfileEdit subModel -> ProfileEdit { subModel | sharedModel = session_ }
+        Home subModel ->  subModel |> Home.updateSession sharedModel |> Home
+        Login subModel ->  subModel |> Login.updateSession sharedModel |> Login
+        Profile subModel ->  subModel |> Profile.updateSession sharedModel |> Profile
+        Game subModel ->  subModel |> Game.updateSession sharedModel |> Game
+        ProfileEdit subModel -> ProfileEdit { subModel | sharedModel = sharedModel }
+        About _ -> About sharedModel

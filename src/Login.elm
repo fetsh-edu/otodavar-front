@@ -75,33 +75,13 @@ view translator model =
     , body = contentView translator model
     }
 
+contentView : Translator msg -> Model -> List (Html msg)
 contentView translator model =
     [ View.Helper.container
-        [ View.Helper.section
+        ((View.Helper.section
             "Login" "tertiary-container tertiary-text uppercase text-center"
             [div [ class "p-8 flex justify-center"] (loginSection translator model.flow)]
-        , View.Helper.section
-            "The game" "secondary-container secondary-text uppercase text-center"
-            [ div
-                [ class "p-4 sm:p-8 text-sm text" ]
-                [ p [ class "pb-4" ]
-                    [ text "Almost ten years ago the music band “OK Go” released a game called "
-                    , a [ class "underline primary-text", target "_blank", href "https://www.youtube.com/watch?v=2sP1DqyagXE" ] [ text "“Say the Same Thing”" ]
-                    , text ". It was greatly entertaining and addictive but then vanished. So here we have an hommage."
-                    ]
-                ]
-            ]
-        , View.Helper.section
-            "Rules" "primary-container primary-text uppercase text-center"
-            [ div
-                [ class "p-4 sm:p-8 text-sm text" ]
-                [ p [ class "pb-4" ] [ text "Oto|davar — is a cooperative game of words where every player wins, and no one loses. All you have to do is say the same word with your partner." ]
-                , p [ class "pb-4" ] [ text "The rules are simple: you start by saying a word. Any word. A random word. So as your partner. You’ll have an accidental pair of words. And now you have your round zero, where all the fun begins." ]
-                , p [ class "pb-4" ] [ text "Just go again. But this time try to say the same word with your partner: find something that connects the first two words, something they have in common. Or even something you think your partner would think they have in common 🙂"]
-                , p [ class "pb-4" ] [ text "It’s fun to see the way someone else thinks. You’ll smile, you’ll have facepalms, you’ll laugh, and even scream in frustration!"]
-                ]
-            ]
-        ]
+        ) :: View.Helper.about)
     ]
 
 

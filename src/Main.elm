@@ -1,5 +1,6 @@
 port module Main exposing (init, main, update, view)
 
+import About
 import Browser exposing (Document, application)
 import Browser.Navigation as Navigation exposing (Key)
 import Game
@@ -144,6 +145,8 @@ changeRouteTo maybeRoute model =
         case maybeRoute of
             Nothing ->
                 ( model, Route.replaceUrl (SharedModel.navKey session) Route.Home )
+            Just Route.About ->
+                updateWith About identity (session, Cmd.none)
             Just Route.Login ->
                 if (SharedModel.isGuest session)
                 then updateWith Login GotLoginMsg (Login.init session)
@@ -352,6 +355,7 @@ view model =
         Profile subModel -> Profile.view  { toSelf = GotProfileMsg, onGameStart = LaunchGame } subModel |> mapOver
         Game subModel ->    Game.view { toSelf = GotGameMsg, onGameStart = LaunchGame } subModel |> mapOver
         ProfileEdit subModel -> ProfileEdit.view { toSelf = GotProfileEditMsg, toParent = GotBrowserNotificationsMsg } subModel |> mapOver
+        About some -> About.view some |> mapOver
 
 
 
@@ -516,57 +520,6 @@ drawer model =
                       , text "Toggle theme"
                       ]
                 ]
-        --notifications =
-        --    case (model |> getSharedModel |> .auth) of
-        --        LoggedIn _ _ p_ ->
-        --            let
-        --                cursor =
-        --                    if p_.buttonDisabled
-        --                    then "cursor-default on-surface-variant-text"
-        --                    else "cursor-pointer"
-        --                subscribePush icon_ t_ =
-        --                    span
-        --                        [ class "flex relative items-center rounded-md drawer-item h-10 px-2 py-6 mx-2 mb-2"
-        --                        , class cursor
-        --                        , onClick (GotPushMsg Push.Subscribe)
-        --                        , disabled p_.buttonDisabled
-        --                        ]
-        --                        [ span [ class "material-symbols-outlined mr-4" ] [ text icon_]
-        --                        , text t_
-        --                        ]
-        --                unsubscribePush t_ =
-        --                    span
-        --                        [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
-        --                        , class cursor
-        --                        , onClick (GotPushMsg Push.UnSubscribe)
-        --                        , disabled p_.buttonDisabled
-        --                        ]
-        --                        [ span [ class "material-symbols-outlined mr-4" ] [ text "notifications_off"]
-        --                        , text t_
-        --                        ]
-        --                pushButton =
-        --                    case  p_.state of
-        --                        Push.NotAsked ->
-        --                            subscribePush "notification_add" "Turn on"
-        --                        Push.Unsubscribed _->
-        --                            subscribePush "notification_add" "Turn on"
-        --                        Push.Denied ->
-        --                            subscribePush "notifications_paused" "Blocked for this site"
-        --                        Push.Error a ->
-        --                            subscribePush "notification_important" ("Error" )
-        --                        Push.NotSupported ->
-        --                            text ""
-        --                        Push.Subscribed _ ->
-        --                            unsubscribePush "Turn off"
-        --
-        --            in
-        --            div
-        --                [ class "border-t border-light-200 text-left pt-3 pb-3 flex flex-col" ]
-        --                [ span [ class "pl-4 mb-2 on-surface-variant-text text-sm" ] [ text "Notifications" ]
-        --                , pushButton
-        --                ]
-        --        Guest _ ->
-        --            text ""
     in
     div
         [ class "fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 py-0 px-0"
@@ -585,6 +538,17 @@ drawer model =
                 [ class "overflow-y-auto flex-grow pt-4" ]
                 [ friendsLink
                 , gamesLink
+                ]
+            , div
+                [ class "border-t border-light-200 text-left pt-3 pb-3 flex flex-col" ]
+                [ a
+                    [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2"
+                    , onClick HideDrawer
+                    , Route.href Route.About
+                    ]
+                    [ span [ class "material-symbols-outlined mr-4" ] [ text "info"]
+                    , text "Rules"
+                    ]
                 ]
             , drawerFooter
             --, notifications
