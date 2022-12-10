@@ -176,7 +176,7 @@ gamesSection : String -> String -> List SGame.Game -> Html msg
 gamesSection title classes games =
     if List.isEmpty games
     then text ""
-    else View.Helper.section title (classes ++ " uppercase text-center") (List.map (SGame.view) games)
+    else View.Helper.section title (classes ++ " uppercase text-center") (List.map (SGame.gamePreview) games)
 
 
 get : SharedModel -> Cmd Msg

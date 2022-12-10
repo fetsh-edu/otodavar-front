@@ -1,9 +1,14 @@
 module Game.Word exposing (..)
 
 import Game.Stamp as Stamp exposing (Stamp)
+import Html exposing (Attribute)
+import Html.Attributes
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
 import User.Uid as Uid exposing (Uid)
+
+shrinkThreshold : Int
+shrinkThreshold = 13
 
 type alias Word =
     { word: String
@@ -28,3 +33,11 @@ encoder uid roundId guess =
         [ ( "game_uid", Encode.string (Uid.toString uid) )
         , ( "word", Encode.object [ ("round_id", Encode.int roundId), ("word", Encode.string guess) ] )
         ]
+
+-- VIEW
+
+shrinkClass : String -> Attribute msg
+shrinkClass word =
+    if String.length word > shrinkThreshold
+        then Html.Attributes.class "text-sm"
+        else Html.Attributes.class ""

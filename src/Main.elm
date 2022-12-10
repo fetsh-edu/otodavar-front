@@ -4,6 +4,7 @@ import About
 import Browser exposing (Document, application)
 import Browser.Navigation as Navigation exposing (Key)
 import Game
+import Game.ExampleGame as ExampleGame
 import Game.Game as G
 import Home
 import Html exposing (..)
@@ -146,10 +147,10 @@ changeRouteTo maybeRoute model =
             Nothing ->
                 ( model, Route.replaceUrl (SharedModel.navKey session) Route.Home )
             Just Route.About ->
-                updateWith About identity (session, Cmd.none)
+                updateWith About GotExampleGameMsg (About.init session)
             Just Route.Login ->
                 if (SharedModel.isGuest session)
-                then updateWith Login GotLoginMsg (Login.init session)
+                then updateWith Login GotExampleGameMsg (Login.init session)
                 else (model, Navigation.replaceUrl (session.key) (Route.routeToString Route.Home))
             Just Route.Home ->
                 updateWith Home GotHomeMsg (Home.init session)
@@ -245,9 +246,16 @@ update msg model =
             )
 
 
-        ( GotHomeMsg subMsg, Home subModel  ) ->
+        ( GotHomeMsg subMsg, Home subModel ) ->
             updateWith Home GotHomeMsg (Home.update subMsg subModel)
         ( GotHomeMsg _, _ ) -> noOp model
+
+        ( GotExampleGameMsg subMsg, About subModel ) ->
+            updateWith (\x -> About { subModel | example = x }) GotExampleGameMsg (ExampleGame.update subMsg subModel.example)
+        ( GotExampleGameMsg subMsg, Login subModel ) ->
+            updateWith (\x -> Login { subModel | example = x }) GotExampleGameMsg (ExampleGame.update subMsg subModel.example)
+
+        ( GotExampleGameMsg _, _ ) -> noOp model
 
         ( LaunchGame maybeUid, _) ->
             let
@@ -351,11 +359,11 @@ view model =
     in
     case model of
         Home subModel ->    Home.view {toSelf = GotHomeMsg, onRandomLaunch = LaunchGame} subModel |> mapOver
-        Login subModel ->   Login.view { toSelf = GotLoginMsg } subModel |> mapOver
+        Login subModel ->   Login.view { toSelf = GotLoginMsg, fromExample = GotExampleGameMsg } subModel |> mapOver
         Profile subModel -> Profile.view  { toSelf = GotProfileMsg, onGameStart = LaunchGame } subModel |> mapOver
         Game subModel ->    Game.view { toSelf = GotGameMsg, onGameStart = LaunchGame } subModel |> mapOver
         ProfileEdit subModel -> ProfileEdit.view { toSelf = GotProfileEditMsg, toParent = GotBrowserNotificationsMsg } subModel |> mapOver
-        About some -> About.view some |> mapOver
+        About some -> About.view { toSelf = GotExampleGameMsg } some |> mapOver
 
 
 

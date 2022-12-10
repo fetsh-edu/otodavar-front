@@ -1,5 +1,6 @@
 module Main.Model exposing (..)
 
+import About
 import Game
 import Home
 import Login
@@ -13,7 +14,7 @@ type Model
     | Profile Profile.Model
     | Game Game.Model
     | ProfileEdit ProfileEdit.Model
-    | About SharedModel
+    | About About.Model
 
 
 getSharedModel : Model -> SharedModel
@@ -24,7 +25,7 @@ getSharedModel page =
         Profile profile -> Profile.toSession profile
         Game game -> Game.toSession game
         ProfileEdit some ->  some.sharedModel
-        About some -> some
+        About some -> some.sharedModel
 
 updateSharedModel : SharedModel -> Model -> Model
 updateSharedModel sharedModel model =
@@ -34,4 +35,4 @@ updateSharedModel sharedModel model =
         Profile subModel ->  subModel |> Profile.updateSession sharedModel |> Profile
         Game subModel ->  subModel |> Game.updateSession sharedModel |> Game
         ProfileEdit subModel -> ProfileEdit { subModel | sharedModel = sharedModel }
-        About _ -> About sharedModel
+        About subModel -> About { subModel | sharedModel = sharedModel }

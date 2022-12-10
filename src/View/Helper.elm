@@ -1,7 +1,8 @@
 module View.Helper exposing (..)
 
-import Html exposing (Html, a, div, p, span, text)
+import Html exposing (Html, a, button, div, p, span, text)
 import Html.Attributes exposing (class, href, target)
+import Html.Events exposing (onClick)
 
 
 loadingContainer : String -> Html msg
@@ -65,8 +66,8 @@ section title_ class_ list =
          ]
 
 
-about : List (Html msg)
-about = [okGo, rules]
+about : Html msg -> List (Html msg)
+about game = [okGo, description, game, rules]
 
 okGo : Html msg
 okGo =
@@ -82,18 +83,48 @@ okGo =
             ]
         ]
 
+description: Html msg
+description =
+    section
+        "אותו דבר" "primary-container primary-text uppercase text-center"
+        [ div
+            [ class "p-4 sm:p-8 text-sm text" ]
+            [ p [ class "pb-4" ] [ text "Oto|davar (Hebrew: אותו דבר, lit. \"same thing\") — is a cooperative game of words where every player wins, and no one loses. All you have to do is say the same word with your partner." ]
+            ]
+        ]
+
 rules : Html msg
 rules =
     section
         "Rules" "primary-container primary-text uppercase text-center"
         [ div
             [ class "p-4 sm:p-8 text-sm text" ]
-            [ p [ class "pb-4" ] [ text "Oto|davar — is a cooperative game of words where every player wins, and no one loses. All you have to do is say the same word with your partner." ]
-            , p [ class "pb-4" ] [ text "The rules are simple: you start by saying a word. Any word. A random word. So as your partner. You’ll have an accidental pair of words. And now you have your round zero, where all the fun begins." ]
+            [ p [ class "pb-4" ] [ text "The rules are simple: you start by saying a word. Any word. A random word. So as your partner. You’ll have an accidental pair of words. And now you have your round zero, where all the fun begins." ]
             , p [ class "pb-4" ] [ text "Just go again. But this time try to say the same word with your partner: find something that connects the first two words, something they have in common. Or even something you think your partner would think they have in common 🙂"]
             , p [ class "pb-4" ] [ text "It’s fun to see the way someone else thinks. You’ll smile, you’ll have facepalms, you’ll laugh, and even scream in frustration!"]
             ]
         ]
+
+-- BUTTONS
+playAgainButton : msg -> Html msg
+playAgainButton msg =
+    div
+        [ class "sticky bottom-0 right-0 left-0 container w-full" ]
+        [ span
+            [ class "justify-center flex w-full" ]
+            [ span
+                [ class "border-surface border-4 surface rounded mb-2"]
+                    [ button
+                        [ class "cursor-pointer font-bold inline-block flex items-center leading-normal uppercase text-md rounded outline-none focus:outline-none filter drop-shadow primary on-primary-text px-4 py-2 m-0"
+                        , onClick msg
+                        ]
+                        [ span [ class "material-symbols-outlined text-md mr-2" ][ text "sports_esports" ]
+                        , text "Play again"
+                        ]
+                    ]
+            ]
+        ]
+
 
 nbsp : String
 nbsp = String.fromChar '\u{00A0}'

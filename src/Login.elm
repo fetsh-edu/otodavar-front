@@ -7,8 +7,9 @@ import Browser.Navigation as Navigation
 import Bytes exposing (Bytes)
 import Bytes.Encode as Bytes
 import Dict
-import Html exposing (Html, a, div, img, p, span, text)
-import Html.Attributes exposing (class, href, src, style, target)
+import Game.ExampleGame as ExampleGame
+import Html exposing (Html, div, img, span, text)
+import Html.Attributes exposing (class, src, style)
 import Html.Events exposing (onClick)
 import Http exposing (Error(..), Expect, expectStringResponse)
 import Json.Decode as Decode exposing (field)
@@ -17,28 +18,28 @@ import Jwt exposing (decodeToken, errorToString)
 import OAuth exposing (ErrorCode(..), ResponseType(..), Token)
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..), defaultAuthorizationErrorParser, defaultErrorParser, defaultTokenParser)
 import OtoApi
-import SharedModel exposing (SharedModel, navKey)
+import SharedModel exposing (SharedModel)
 import Url exposing (Protocol(..), Url)
 import Url.Parser as Url exposing ((<?>))
 import Url.Parser.Query as Query
 import User.Bearer exposing (Bearer(..))
 import User.Config exposing (configuration)
-import User.Name as Name
 import User.User as User exposing (User, decoderSimpleInfo2)
 import View.Helper
 
 type alias Model =
     { sharedModel : SharedModel
     , flow : Flow
+    , example : ExampleGame.Model
     }
 
 initModel : SharedModel -> Model
 initModel sharedModel =
-    { sharedModel = sharedModel, flow = WithSession sharedModel}
+    { sharedModel = sharedModel, flow = WithSession sharedModel, example = ExampleGame.initModel}
 
-init : SharedModel ->  (Model, Cmd Msg)
+init : SharedModel ->  (Model, Cmd ExampleGame.Msg)
 init sharedModel =
-    ( initModel sharedModel, Cmd.none)
+    ( initModel sharedModel, ExampleGame.initMsg)
 
 updateSession : SharedModel -> Model -> Model
 updateSession session model =
@@ -67,6 +68,7 @@ type Msg
 
 type alias Translator msg =
     { toSelf : Msg -> msg
+    , fromExample : ExampleGame.Msg -> msg
     }
 
 view : Translator msg -> Model -> Document msg
@@ -81,9 +83,12 @@ contentView translator model =
         ((View.Helper.section
             "Login" "tertiary-container tertiary-text uppercase text-center"
             [div [ class "p-8 flex justify-center"] (loginSection translator model.flow)]
-        ) :: View.Helper.about)
+        ) :: View.Helper.about (game translator model) )
     ]
 
+
+game : { a | fromExample : ExampleGame.Msg -> msg } -> Model -> Html msg
+game translator model = ExampleGame.view translator.fromExample model.example
 
 loginSection translator flow =
     let

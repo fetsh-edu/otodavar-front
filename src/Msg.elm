@@ -2,13 +2,13 @@ module Msg exposing (..)
 
 import Browser
 import Game
+import Game.ExampleGame as GameExample
 import Home
 import Login
 import Notifications
 import Notifications.BrowserNotifications as BrowserNotifications
 import Profile
 import ProfileEdit
-import Push
 import RemoteData exposing (WebData)
 import SharedModel exposing (SharedModel)
 import Url exposing (Url)
@@ -26,6 +26,7 @@ type Msg
     | GotProfileMsg Profile.Msg
     | GotProfileEditMsg ProfileEdit.Msg
     | GotGameMsg Game.Msg
+    | GotExampleGameMsg GameExample.Msg
     | GotNotificationsMsg Notifications.Msg
     | GotBrowserNotificationsMsg BrowserNotifications.Msg
     | UserInfoReceived (WebData SimpleInfo)
