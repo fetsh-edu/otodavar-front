@@ -97,11 +97,11 @@ update msg model =
             ( model, SharedModel.logout )
         UpdateTelegramAuth some ->
             ( { model | saveTelegramResult = Loading }
-            , save HandleTelegramSaved (model.sharedModel) (Encode.object [ ( "telegram_id", TelegramAuth.encode some )]) User.decoderInfo
+            , save HandleTelegramSaved (model.sharedModel) (Encode.object [ ( "telegram", TelegramAuth.encode some )]) User.decoderInfo
             )
         UnsubscribeTelegram ->
             ( { model | saveTelegramResult = Loading }
-            , save HandleTelegramSaved (model.sharedModel) (Encode.object [ ( "telegram_id", Encode.null )]) User.decoderInfo
+            , save HandleTelegramSaved (model.sharedModel) (Encode.object [ ( "telegram", Encode.null )]) User.decoderInfo
             )
         HandleTelegramSaved webData ->
             let

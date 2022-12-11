@@ -3,7 +3,6 @@ export default class TelegramButton extends HTMLElement {
     const self = super();
 
     self.onauth = (user) => {
-        console.log("Inside fire with user", user)
         this.dispatchEvent(new CustomEvent('on-telegram-auth', {detail: user}))
     }
 
@@ -32,7 +31,6 @@ export default class TelegramButton extends HTMLElement {
 }
 
 const onTelegramAuth = (user) => {
-    console.log("data-onauth fired with", user)
     const button = document.querySelector("telegram-button")
     button.onauth(user)
 }

@@ -202,7 +202,6 @@ app.ports.subscribeToGame.subscribe(function (game_uid) {
 
 
 app.ports.storeUserInfo.subscribe(function (val) {
-    console.log("Store user info called", val)
     if (val === null) {
         localStorage.removeItem(infoKey);
     } else {
