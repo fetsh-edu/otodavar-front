@@ -4,8 +4,8 @@ import Game.OtoGame as Game exposing (OtoGame)
 import Json.Decode as Decode exposing (Decoder)
 type alias Games =
     { randomGame : Maybe OtoGame
-    , openGames : List OtoGame
-    , closedGames : List OtoGame
+    , activeGames : List OtoGame
+    , archivedGames : List OtoGame
     }
 
 decoder : Decoder Games

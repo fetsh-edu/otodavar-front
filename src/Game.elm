@@ -3,6 +3,7 @@ port module Game exposing (..)
 import Browser exposing (Document)
 import Browser.Dom as Dom
 import Browser.Navigation as Navigation
+import Game.ComposedStatus exposing (ComposedStatus)
 import Game.Game as Game exposing (Game(..), State)
 import Game.Round as Round exposing (Round(..))
 import Game.Stamp as Stamp exposing (Stamp)
@@ -28,6 +29,7 @@ type alias Model =
     , game : WebData Game
     , guess : String
     , guessWebData : WebData Game
+    , archiveWebData : WebData Game
     , stickerSelectShown : Maybe { wordId: Int }
     }
 
@@ -41,25 +43,26 @@ type Msg
     | SendSticker Stamp
     | OnSendSticker (WebData Bool)
     | CloseStickers
+    | ArchiveGame Uid
     | NoOp
 
 initModel : SharedModel -> Model
-initModel = Model >> (\x -> x Loading "" NotAsked Nothing)
+initModel = Model >> (\x -> x Loading "" NotAsked NotAsked Nothing)
 
 toSession : Model -> SharedModel
 toSession = .session
 
-init : SharedModel -> Uid -> (Model, Cmd Msg)
-init session uid =
-    (initModel session, get session uid)
+init : (Msg -> msg) -> SharedModel -> Uid -> (Model, Cmd msg)
+init toSelf session uid =
+    (initModel session, get (toSelf << GameReceived) session uid)
 
 updateSession : SharedModel -> Model -> Model
 updateSession session model =
     { model | session  = session}
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
-update msg model =
+update : {toSelf : Msg -> msg, onGameArchived : msg} -> Msg -> Model -> ( Model, Cmd msg )
+update { toSelf, onGameArchived } msg model =
     case msg of
         GameReceived webData ->
             let
@@ -76,7 +79,7 @@ update msg model =
                     then Navigation.pushUrl (model |> toSession |> .key) (Route.routeToString gR)
                     else Cmd.none
                 ) ) |> Maybe.withDefault Cmd.none
-                , focusOnInput
+                , focusOnInput toSelf
                 ]
             )
         OnGuessChange str ->
@@ -84,16 +87,16 @@ update msg model =
         SubmitGuess ->
             case (model.game, model.guess |> String.trim |> String.isEmpty) of
                 (Success game, False) ->
-                    ( {model | guessWebData = Loading }, submitGuess model.session model.guess game)
+                    ( {model | guessWebData = Loading }, submitGuess (toSelf << OnGuessResponse) model.session model.guess game)
                 _ ->
                     (model, Cmd.none)
         OnGuessResponse ((Success s) as webData) ->
-            ( { model | game = webData, guessWebData = NotAsked, guess = "" }, focusOnInput)
+            ( { model | game = webData, guessWebData = NotAsked, guess = "" }, focusOnInput toSelf)
         OnGuessResponse webData ->
-            ( { model | guessWebData = webData}, focusOnInput)
+            ( { model | guessWebData = webData}, focusOnInput toSelf)
         GotWordFromSocket (Ok word) ->
             if model |> toSession |> SharedModel.user |> Maybe.map User.info |> Maybe.map (\x -> x.uid /= word.player) |> Maybe.withDefault False
-            then ( model, model.game |> RemoteData.map (Game.uid >> get (model.session)) |> RemoteData.withDefault Cmd.none )
+            then ( model, model.game |> RemoteData.map (Game.uid >> get (toSelf << GameReceived) (model.session)) |> RemoteData.withDefault Cmd.none )
             else ( { model | game = RemoteData.map (Game.updateWord word) model.game }, Cmd.none )
         GotWordFromSocket (Err e) ->
             (model, Cmd.none)
@@ -105,17 +108,21 @@ update msg model =
                     ({ model | stickerSelectShown = Nothing }, Cmd.none)
         SendSticker sticker ->
             ( { model | stickerSelectShown = Nothing }
-            , sendSticker model.session sticker model.stickerSelectShown
+            , sendSticker (toSelf << OnSendSticker) model.session sticker model.stickerSelectShown
             )
         OnSendSticker _ ->
             (model, Cmd.none)
         CloseStickers ->
             ({ model | stickerSelectShown = Nothing }, Cmd.none)
         NoOp -> (model, Cmd.none)
+        ArchiveGame uid ->
+            ({ model | archiveWebData = Loading}, archiveGame onGameArchived model.session uid)
 
 
-focusOnInput : Cmd Msg
-focusOnInput = Task.attempt (\_ -> NoOp) (Dom.focus "word-input")
+
+
+focusOnInput : (Msg -> msg) -> Cmd msg
+focusOnInput toMsg = Task.attempt (\_ -> toMsg NoOp) (Dom.focus "word-input")
 
 launchCmd : SharedModel -> Maybe Uid -> Cmd Msg
 launchCmd session maybeUid =
@@ -136,30 +143,38 @@ launchCmd session maybeUid =
     session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
-sendSticker : SharedModel -> Stamp -> Maybe { a | wordId : Int } -> Cmd Msg
-sendSticker session stamp stickerSelectShown =
+sendSticker : (WebData Bool -> msg) -> SharedModel -> Stamp -> Maybe { a | wordId : Int } -> Cmd msg
+sendSticker msg session stamp stickerSelectShown =
     case stickerSelectShown of
         Nothing -> Cmd.none
         Just { wordId } ->
             let
                 url = (OtoApi.routes session.apiUrl).word.stamp(wordId)
-                message bearer = RemoteData.Http.postWithConfig (config bearer) url OnSendSticker (Decode.null False) (Encode.object [ ("stamp", Stamp.encode stamp)])
+                message bearer = RemoteData.Http.postWithConfig (config bearer) url msg (Decode.null False) (Encode.object [ ("stamp", Stamp.encode stamp)])
             in
             session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
+archiveGame : msg -> SharedModel -> Uid -> Cmd msg
+archiveGame toMsg session uid =
+    let
+        url = (OtoApi.routes session.apiUrl).game.archive uid
+        decoder = (Game.decoder (session |> SharedModel.user |> Maybe.map(.uid << User.info)))
+        message bearer = RemoteData.Http.postWithConfig (config bearer) url (always toMsg) decoder Encode.null
+    in
+    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
-get : SharedModel -> Uid -> Cmd Msg
-get session uid =
+get : (WebData Game -> msg) -> SharedModel -> Uid -> Cmd msg
+get msg session uid =
     let
         url = (OtoApi.routes session.apiUrl).game.show uid
         decoder = (Game.decoder (session |> SharedModel.user |> Maybe.map(.uid << User.info)))
-        message bearer = RemoteData.Http.getWithConfig (config bearer) url GameReceived decoder
+        message bearer = RemoteData.Http.getWithConfig (config bearer) url msg decoder
     in
     session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
-submitGuess : SharedModel -> String -> Game -> Cmd Msg
-submitGuess session guess game =
+submitGuess : (WebData Game -> msg) -> SharedModel -> String -> Game -> Cmd msg
+submitGuess msg session guess game =
     case game of
         WrongState _ -> Cmd.none
         RightState state ->
@@ -171,7 +186,7 @@ submitGuess session guess game =
                         (state |> Game.payload |> .uid)
                         (state |> Game.payload |> .question |> Maybe.map Round.id |> Maybe.map ((+) 1) |> Maybe.withDefault 0)
                         (guess)
-                message bearer = RemoteData.Http.postWithConfig (config bearer) url OnGuessResponse decoder guessValue
+                message bearer = RemoteData.Http.postWithConfig (config bearer) url msg decoder guessValue
             in
             session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
@@ -203,7 +218,7 @@ gameView translator me model =
                         WrongState _ ->
                             [View.Helper.loadingContainer "Game is in some wrong state. It shouldn't be possible. If you can, send this url to developer." ]
                         RightState state ->
-                            successContent translator model.guess model.guessWebData state model.stickerSelectShown
+                            successContent translator model.guess model.guessWebData model.archiveWebData state model.stickerSelectShown (Game.composedStatus game)
                 Failure e ->
                     case e of
                         BadStatus 404 -> [ View.Helper.notFound ]
@@ -249,8 +264,8 @@ loadingContent =
             ]
         ]
 
-successContent : Translator msg -> String -> WebData Game -> State -> Maybe {wordId : Int} -> List (Html msg)
-successContent translator guessText guessData state stickerSelect =
+successContent : Translator msg -> String -> WebData Game -> WebData Game -> State -> Maybe { wordId : Int } -> ComposedStatus -> List (Html msg)
+successContent translator guessText guessData archiveData state stickerSelect composedStatus =
     let
         gameViewTranslator =
             { playAgainMsg = translator.onGameStart << Just
@@ -259,9 +274,10 @@ successContent translator guessText guessData state stickerSelect =
             , stampSelectMsg = translator.toSelf << SendSticker
             , submitGuessMsg = translator.toSelf SubmitGuess
             , onGuessChangeMsg = translator.toSelf << OnGuessChange
+            , archiveGameMsg = translator.toSelf << ArchiveGame
             }
     in
-    [View.Helper.container (Game.gameView gameViewTranslator stickerSelect guessText guessData state True)]
+    [View.Helper.container (Game.gameView gameViewTranslator stickerSelect guessText guessData archiveData state True composedStatus)]
 
 joinChannelSocket : Uid -> Cmd msg
 joinChannelSocket gameUid =

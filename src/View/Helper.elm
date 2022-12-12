@@ -1,8 +1,9 @@
 module View.Helper exposing (..)
 
 import Html exposing (Html, a, button, div, p, span, text)
-import Html.Attributes exposing (class, href, target)
+import Html.Attributes exposing (class, disabled, href, target)
 import Html.Events exposing (onClick)
+import RemoteData exposing (WebData)
 
 
 loadingContainer : String -> Html msg
@@ -106,28 +107,37 @@ rules =
         ]
 
 -- BUTTONS
-playAgainButton : msg -> Bool -> Html msg
-playAgainButton msg sticky =
-    div
-        [ class "bottom-0 right-0 left-0 container w-full"
-        , if sticky
-            then class "sticky"
-            else class ""
-        ]
-        [ span
-            [ class "justify-center flex w-full" ]
-            [ span
-                [ class "border-surface border-4 surface rounded mb-2"]
-                    [ button
-                        [ class "cursor-pointer font-bold inline-block flex items-center leading-normal uppercase text-md rounded outline-none focus:outline-none filter drop-shadow primary on-primary-text px-4 py-2 m-0"
-                        , onClick msg
-                        ]
-                        [ span [ class "material-symbols-outlined text-md mr-2" ][ text "sports_esports" ]
-                        , text "Play again"
-                        ]
-                    ]
+playAgainButton : msg -> Html msg
+playAgainButton msg =
+    span
+        [ class "border-surface border-4 surface rounded mb-2"]
+            [ button
+                [ class "cursor-pointer font-bold inline-block flex items-center leading-normal uppercase text-md rounded outline-none focus:outline-none filter drop-shadow primary on-primary-text px-4 py-2 m-0"
+                , onClick msg
+                ]
+                [ span [ class "material-symbols-outlined text-md mr-2" ][ text "sports_esports" ]
+                , text "Play again"
+                ]
             ]
-        ]
+
+archiveButton : msg -> WebData a -> Html msg
+archiveButton msg webData =
+    span
+        [ class "border-surface border-4 surface rounded mb-2"]
+            [ button
+                [ class "cursor-pointer font-bold inline-block flex items-center leading-normal uppercase text-md rounded outline-none focus:outline-none filter drop-shadow primary on-primary-text px-4 py-2 m-0"
+                , onClick msg
+                , disabled
+                    ( case webData of
+                        RemoteData.Loading -> True
+                        _ -> False
+                    )
+                ]
+                [ span [ class "material-symbols-outlined text-md mr-2" ][ text "place_item" ]
+                , text "Yay!"
+                ]
+            ]
+
 
 
 nbsp : String

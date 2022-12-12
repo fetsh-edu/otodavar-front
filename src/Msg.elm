@@ -35,4 +35,5 @@ type Msg
     | HideDrawer
     | ShowDrawer
     | AlertDismiss
+    | OnGameArchived
     | LaunchGame (Maybe Uid)

@@ -1,6 +1,7 @@
 module Game.ExampleGame exposing (..)
 
 import Delay exposing (after)
+import Game.ComposedStatus as ComposedStatus
 import Game.Game as Game exposing (Game, Guess(..), State)
 import Game.GameStatus exposing (GameStatus(..))
 import Game.Stamp as Stamp exposing (Stamp)
@@ -44,12 +45,16 @@ closedGames words =
     , status = Closed
     , player_1 = leftPlayer
     , player_2 = Just rightPlayer
+    , seen_by_1 = True
+    , seen_by_2 = True
     , words = words
     }
 
 otoGame words =
     { uid = Uid ""
     , status = Open
+    , seen_by_1 = True
+    , seen_by_2 = True
     , player_1 = leftPlayer
     , player_2 = Just rightPlayer
     , words = words
@@ -190,12 +195,13 @@ view toSelf model =
             , stampSelectMsg = SendSticker >> toSelf
             , submitGuessMsg = toSelf NoOp
             , onGuessChangeMsg = OnGuessChange >> toSelf
+            , archiveGameMsg  = always NoOp >> toSelf
             }
     in
     case model.game of
        Game.WrongState _ -> Html.text ""
        Game.RightState state ->
-           Html.div [] (Game.gameView translator model.stickerSelect model.guessText model.guessData state False)
+           Html.div [] (Game.gameView translator model.stickerSelect model.guessText model.guessData NotAsked state False ComposedStatus.Archived)
 
 
 

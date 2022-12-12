@@ -1,5 +1,6 @@
 module Helpers exposing (..)
 
+import Dict exposing (Dict)
 import Html exposing (Attribute)
 import Html.Events exposing (keyCode, on)
 import Json.Decode as Json
@@ -62,3 +63,23 @@ onEnter onEnterAction =
                     Json.fail (String.fromInt keyCode)
             )
             keyCode
+
+
+groupBy : (a -> comparable) -> List a -> Dict comparable (List a)
+groupBy extract list =
+    let
+        testFn : (a -> a -> Bool)
+        testFn = (\a b -> extract a == extract b)
+
+        helper : List a -> List ( comparable, List a ) -> List ( comparable, List a )
+        helper scattered gathered =
+            case scattered of
+                [] -> gathered
+                toGather :: population ->
+                    let
+                        ( gathering, remaining ) =
+                            List.partition (testFn toGather) population
+                    in
+                    helper remaining (( extract toGather, toGather :: gathering ) :: gathered)
+    in
+    helper list [] |> Dict.fromList

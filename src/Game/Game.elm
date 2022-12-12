@@ -1,5 +1,6 @@
 module Game.Game exposing (..)
 
+import Game.ComposedStatus exposing (ComposedStatus(..))
 import Game.OtoGame as Game exposing (OtoGame)
 import Game.GameStatus as Status exposing (GameStatus(..))
 import Game.Round as Round exposing (Round)
@@ -22,27 +23,38 @@ type Game
     = RightState State
     | WrongState OtoGame
 
+type alias Seen = Bool
+
 type State
-    = Mine LeftPlayer (Maybe RightPlayer) Payload
+    = Mine LeftPlayer (Maybe RightPlayer) Seen Payload
     | Others LeftPlayer (Maybe RightPlayer) Payload
+
+
+status : Game -> GameStatus
+status game =
+    case game of
+        RightState state ->
+            payload state |> .status
+        WrongState otoGame ->
+            otoGame.status
 
 payload : State -> Payload
 payload state =
     case state of
-        Mine _ _ p_ -> p_
+        Mine _ _ _ p_ -> p_
         Others _ _ p_ -> p_
 
 leftPlayer : State -> LeftPlayer
 leftPlayer state =
     case state of
-        Mine l_ _ _ -> l_
+        Mine l_ _ _ _ -> l_
         Others l_ _ _ -> l_
 
 
 opponent : State -> Maybe RightPlayer
 opponent state =
     case state of
-        Mine _ p_ _ -> p_
+        Mine _ p_ _ _ -> p_
         Others _ p_ _ -> p_
 
 uid : Game -> Uid
@@ -70,8 +82,8 @@ updateWord word game =
     case game of
         RightState state ->
             case state of
-                Mine l_ mr_ payload_ ->
-                    RightState (Mine l_ mr_ (updateWordInPayload word payload_))
+                Mine l_ mr_ s_ payload_ ->
+                    RightState (Mine l_ mr_ s_ (updateWordInPayload word payload_))
                 Others l_ mr_ payload_ ->
                     RightState (Others l_ mr_ (updateWordInPayload word payload_))
         WrongState otoGame ->
@@ -140,35 +152,50 @@ fromGame maybeMe game =
     else if rounds |> List.filter(Round.isIncomplete) |> List.length |> (\x -> x > 1) then
         WrongState game
     else if maybeMe |> Maybe.map (\me -> leftPlayer_.uid == me) |> Maybe.withDefault False then
-        RightState (Mine leftPlayer_ rightPlayer payload_)
+        let
+            seen = (leftPlayer_ == game.player_1 && game.seen_by_1) || ((Maybe.map (\x -> leftPlayer_ == x ) game.player_2 |> Maybe.withDefault False) && game.seen_by_2)
+        in
+        RightState (Mine leftPlayer_ rightPlayer seen payload_)
     else
         RightState (Others leftPlayer_ rightPlayer payload_)
 
 
+composedStatus : Game -> ComposedStatus
+composedStatus game =
+    case game of
+        RightState state ->
+            case state of
+                Mine _ _ s_ p_ ->
+                    case p_.status of
+                        Open ->
+                            case p_.guess of
+                                RightGuess _ -> MyTurn
+                                NoGuess -> MyTurn
+                                LeftGuess _ -> PartnersTurn
+                        Closed ->
+                            if s_
+                            then Archived
+                            else Finished
+                Others _ _ _ ->
+                    OthersGame
+        WrongState _ ->
+            WrongStatus
 
 isMyTurn : Game -> Bool
 isMyTurn game =
     case game of
-        RightState state ->
-            isMyTurnState state
-        _ -> False
-
-isMyTurnState : State -> Bool
-isMyTurnState state =
-    case state of
-        Mine _ _ p_ ->
+        RightState (Mine _ _ _ p_) ->
             case (p_.status, p_.guess) of
                 (Open, RightGuess _) -> True
                 (Open, NoGuess) -> True
                 _ -> False
-        _  -> False
-
+        _ -> False
 
 
 isPartnersTurn : Game -> Bool
 isPartnersTurn game =
     case game of
-            RightState (Mine _ _ p_) ->
+            RightState (Mine _ _ _ p_) ->
                 case (p_.status, p_.guess) of
                     (Open, LeftGuess _) -> True
                     _ -> False
@@ -179,7 +206,7 @@ gamePreview sGame =
     case sGame of
         WrongState _ -> text "Game is in some wrong state. It shouldn't be possible. If you can, send this url to developer."
         RightState (Others _ _ _) -> text "TODO: Others Game"
-        RightState (Mine _ partner p_) ->
+        RightState (Mine _ partner _ p_) ->
             let
                 picture =
                     case partner of
@@ -232,6 +259,7 @@ gamePreview sGame =
 
 type alias Translator msg =
     { playAgainMsg : (Uid -> msg)
+    , archiveGameMsg : (Uid -> msg)
     , closeStickersMsg : msg
     , stampSelectMsg : (Stamp.Stamp -> msg)
     , createStampMsg : (Int -> msg)
@@ -239,8 +267,8 @@ type alias Translator msg =
     , onGuessChangeMsg : (String -> msg)
     }
 
-gameView : Translator msg -> Maybe { b | wordId : c } -> String -> WebData Game -> State -> Bool -> List (Html msg)
-gameView translator stickerSelect guessText guessData state sticky =
+gameView : Translator msg -> Maybe { b | wordId : c } -> String -> WebData Game -> WebData Game -> State -> Bool -> ComposedStatus -> List (Html msg)
+gameView translator stickerSelect guessText guessData archiveData state sticky composedStatus_ =
     let
         stickersSelect =
             case stickerSelect of
@@ -264,7 +292,20 @@ gameView translator stickerSelect guessText guessData state sticky =
         ]
     , case (state |> payload |> .status, state |> opponent) of
         (Closed, Just opponent_) ->
-            View.Helper.playAgainButton (translator.playAgainMsg opponent_.uid) sticky
+            div
+                [ class "bottom-0 right-0 left-0 container w-full"
+                , if sticky
+                    then class "sticky"
+                    else class ""
+                ]
+                [ span
+                    [ class "justify-center flex w-full" ]
+                    [ View.Helper.playAgainButton (translator.playAgainMsg opponent_.uid)
+                    , case composedStatus_ of
+                        Finished -> View.Helper.archiveButton (translator.archiveGameMsg (state |> payload |> .uid)) archiveData
+                        _ -> text ""
+                    ]
+                ]
         _ -> text ""
     ]
 
@@ -274,7 +315,7 @@ currentGuess translator guessText sGame guessData =
         speechBubble =
             case sGame of
                 Others _ _ _ -> text ""
-                Mine _ _ p ->
+                Mine _ _ _ p ->
                     div
                         [ class "px-3"
                         , case guessData of
@@ -343,7 +384,7 @@ currentGuess translator guessText sGame guessData =
                 , span
                     []
                     [ case sGame of
-                      Mine _ _ _ -> text ""
+                      Mine _ _ _ _ -> text ""
                       Others l _ _ -> text <| Name.toString l.name
                     ]
                 ]
@@ -391,7 +432,7 @@ currentGuess translator guessText sGame guessData =
                       Round.view translator.createStampMsg Round.Big a
                   Nothing ->
                       case sGame of
-                          Mine _ _ p_ ->
+                          Mine _ _ _ p_ ->
                               case p_.guess of
                                   LeftGuess _ -> Html.p [ class "text-center mt-4"] [ text "Now it's partner's turn" ]
                                   _ -> Html.p [ class "text-center mt-4"] [ text "Say your first word, any word!" ]

@@ -1,9 +1,13 @@
 module Home exposing (..)
 
 import Browser exposing (Document)
+import Dict
+import Game.ComposedStatus as ComposedStatus
+import Game.GameStatus as GameStatus
 import Game.OtoGame as Game
 import Game.Games as Games exposing (Games)
 import Game.Game as SGame exposing (Game(..))
+import Helpers exposing (groupBy)
 import Html exposing (Html, a, div, span, text)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
@@ -99,11 +103,16 @@ loadingContent =
 
 successContent : Translator msg -> User -> SharedModel -> Games -> List (Html msg)
 successContent { onRandomLaunch, toSelf } me session games =
+    let
+        mappedGames = List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) <| games.activeGames
+        activeGames = groupBy (SGame.composedStatus >> ComposedStatus.toString) mappedGames
+    in
     [ View.Helper.container
-        [ myTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) |> List.filter SGame.isMyTurn)
+        [ winSection  <| Maybe.withDefault [] <| Dict.get (ComposedStatus.toString ComposedStatus.Finished) <| activeGames
+        , myTurnSection <| Maybe.withDefault [] <| Dict.get (ComposedStatus.toString ComposedStatus.MyTurn) <| activeGames
         , playButtonsSection me games.randomGame onRandomLaunch
-        , partnersTurnSection (games.openGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) |> List.filter SGame.isPartnersTurn)
-        , oldGamesSection (games.closedGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)))
+        , partnersTurnSection <| Maybe.withDefault [] <| Dict.get (ComposedStatus.toString ComposedStatus.PartnersTurn) <| activeGames
+        , oldGamesSection (games.archivedGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)))
         ]
     ]
 
@@ -113,8 +122,15 @@ myTurnSection games =
 
 oldGamesSection : List SGame.Game -> Html msg
 oldGamesSection games =
-    gamesSection "Finished Games" "tertiary-container on-tertiary-container-text" games
+    gamesSection "Previous Games" "tertiary-container on-tertiary-container-text" games
 
+partnersTurnSection : List SGame.Game -> Html msg
+partnersTurnSection games =
+    gamesSection "Waiting for partner" "secondary-container on-secondary-container-text" games
+
+winSection : List SGame.Game -> Html msg
+winSection games =
+    gamesSection "Win!" "secondary-container on-secondary-container-text" games
 
 playButtonsSection : User -> Maybe Game.OtoGame -> (Maybe Uid -> msg) -> Html msg
 playButtonsSection a mbGame action=
@@ -166,10 +182,6 @@ playARandomButton action =
             [ span [] [text "Play a Random Partner"]
             ]
         ]
-
-partnersTurnSection : List SGame.Game -> Html msg
-partnersTurnSection games =
-    gamesSection "Waiting for partner" "secondary-container on-secondary-container-text" games
 
 
 gamesSection : String -> String -> List SGame.Game -> Html msg

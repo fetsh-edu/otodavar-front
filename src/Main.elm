@@ -136,11 +136,11 @@ changeRouteTo : Maybe Route -> Model -> ( Model, Cmd Msg )
 changeRouteTo maybeRoute model =
     let
         session =
-            getSharedModel model
+            (getSharedModel model)
         protected =
-            Maybe.withDefault True <| Maybe.map Route.isProtected maybeRoute
+            (Maybe.withDefault True <| Maybe.map Route.isProtected maybeRoute)
     in
-    if (SharedModel.isGuest session) && protected then
+    if ((SharedModel.isGuest session)) && protected then
         ( model, Route.replaceUrl (SharedModel.navKey session) Route.Login )
     else
         case maybeRoute of
@@ -160,7 +160,8 @@ changeRouteTo maybeRoute model =
                 updateWith ProfileEdit GotProfileEditMsg (ProfileEdit.init session)
             Just (Route.Game uid) ->
                 let
-                    newState = updateWith Game GotGameMsg (Game.init session uid)
+
+                    newState = (Game (Game.initModel session), Game.get (GotGameMsg << Game.GameReceived) session uid)
                     oldState = (model, Cmd.none)
                 in
                 case model of
@@ -250,6 +251,9 @@ update msg model =
             updateWith Home GotHomeMsg (Home.update subMsg subModel)
         ( GotHomeMsg _, _ ) -> noOp model
 
+        (OnGameArchived, _) ->
+            updateWith Home GotHomeMsg (Home.init (model |> getSharedModel))
+
         ( GotExampleGameMsg subMsg, About subModel ) ->
             updateWith (\x -> About { subModel | example = x }) GotExampleGameMsg (ExampleGame.update subMsg subModel.example)
         ( GotExampleGameMsg subMsg, Login subModel ) ->
@@ -263,7 +267,10 @@ update msg model =
             in
             (session |> Game.initModel |> Game, Cmd.map GotGameMsg (Game.launchCmd session maybeUid))
         ( GotGameMsg subMsg, Game subModel ) ->
-            updateWith Game GotGameMsg (Game.update subMsg subModel)
+            let
+                (subModel_, subMsg_) = Game.update { toSelf = GotGameMsg, onGameArchived = OnGameArchived } subMsg subModel
+            in
+            (Game subModel_, subMsg_)
         ( GotGameMsg _, _) -> noOp model
         (ToggleDarkMode, _) -> (model, toggleDarkMode ())
         (HideDrawer, _) ->
@@ -425,7 +432,7 @@ header_ model =
                     , notificationPill
                     ]
             ]
-        , div [ class "secondary-text text-sm md:text-base pt-2 justify-center"] [ text "The game you've been waiting for so long"]
+        , div [ class "secondary-text text-sm md:text-base pt-2 justify-center"] [ text "The same thing as “Say the Same Thing”"]
         , div []
             [ case model |> getSharedModel |> SharedModel.isSubscribed of
                 Nothing -> text ""

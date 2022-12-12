@@ -14,3 +14,9 @@ decoder =
                 "closed" -> Decode.succeed Closed
                 _ -> Decode.fail ("Bad game status " ++ x)
         )
+
+toString : GameStatus -> String
+toString status =
+    case status of
+        Open -> "open"
+        _ -> "closed"

@@ -11,6 +11,8 @@ type alias OtoGame =
     , status : GameStatus
     , player_1 : SimpleInfo
     , player_2 : Maybe SimpleInfo
+    , seen_by_1 : Bool
+    , seen_by_2 : Bool
     , words : List Word
     }
 
@@ -28,11 +30,13 @@ players game =
 
 decoder : Decoder OtoGame
 decoder =
-    Decode.map5 OtoGame
+    Decode.map7 OtoGame
         (Decode.field "uid" Uid.decoder)
         (Decode.field "status" GameStatus.decoder)
         (Decode.field "player_1" User.decoderInfo)
         (Decode.field "player_2" (Decode.maybe User.decoderInfo))
+        (Decode.field "seen_by_1" Decode.bool)
+        (Decode.field "seen_by_2" Decode.bool)
         (Decode.oneOf
             [ (Decode.field "last_words" (Decode.list Word.decoder))
             , (Decode.field "words" (Decode.list Word.decoder))
