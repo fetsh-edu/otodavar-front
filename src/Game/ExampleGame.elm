@@ -196,10 +196,10 @@ view toSelf model =
         translator =
             { playAgainMsg = always PlayAgainMsg >> toSelf
             , closeStickersMsg = toSelf NoOp
-            , createStampMsg = SelectSticker >> toSelf
-            , stampSelectMsg = SendSticker >> toSelf
+            , createStampMsg = always NoOp >> toSelf
+            , stampSelectMsg = always NoOp >> toSelf
             , submitGuessMsg = toSelf NoOp
-            , onGuessChangeMsg = OnGuessChange >> toSelf
+            , onGuessChangeMsg = always NoOp >> toSelf
             , archiveGameMsg  = always NoOp >> toSelf
             }
     in
