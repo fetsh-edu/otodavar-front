@@ -9,7 +9,7 @@ module.exports = (withDebug) => {
         output: {
             path: path.resolve(__dirname, '../dist'),
             publicPath: '/',
-            filename: '[name].js'
+            filename: '[name]-[contenthash].js'
         },
         resolve: {
             modules: [path.join(__dirname, "../src"), 'node_modules'],

@@ -103,6 +103,11 @@ encodeUserInfo uInfo =
                 Just some -> Encode.int some
           )
         , ( "user_name", Handle.encode uInfo.handle)
+        , ( "user_name_changed_at"
+                  , case uInfo.handleChanged of
+                        Nothing -> Encode.null
+                        Just some -> Encode.string some
+                  )
         ]
 
 decoderInfo : Decoder SimpleInfo

@@ -362,7 +362,7 @@ currentGuess translator guessText sGame guessData =
                             [ Html.input
                                 [ Html.Events.onInput translator.onGuessChangeMsg
                                 , Helpers.onEnter translator.submitGuessMsg
-                                , Html.Attributes.autofocus True
+                                --, Html.Attributes.autofocus True
                                 , Html.Attributes.id "word-input"
                                 , Html.Attributes.autocomplete False
                                 , class "flex-grow border-0 shy bg-transparent"
