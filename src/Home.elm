@@ -17,6 +17,7 @@ import RemoteData.Http
 import Route
 import SharedModel exposing (SharedModel)
 import User.Bearer as Bearer
+import User.Handle exposing (Handle)
 import User.Uid exposing (Uid)
 import User.User as User exposing (SimpleInfo, User)
 import View.Helper exposing (nbsp)
@@ -145,18 +146,18 @@ playButtonsSection a mbGame action=
     View.Helper.section "Play a game" "error-container on-error-container-text  uppercase text-center"
         buttons
 
-playAFriendButton : { a | uid : Uid} -> Html msg
+playAFriendButton : { a | handle : Handle} -> Html msg
 playAFriendButton me =
     div
         [ class "flex flex-row items-center "]
         [ a
-            [ Route.href (me |> .uid |> Route.Profile)
+            [ Route.href (me |> .handle |> Route.Profile)
             , class "h-12 w-12 m-2 invisible-click"
             ]
             [ span [ class "material-symbols-outlined md-48" ][ text "add_circle" ]
             ]
         , a
-            [ Route.href (me |> .uid |> Route.Profile)
+            [ Route.href (me |> .handle |> Route.Profile)
             , class "ml-2 flex-1 py-3 invisible-click"
             ]
             [ span

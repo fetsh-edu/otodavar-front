@@ -11,6 +11,7 @@ import RemoteData exposing (RemoteData(..), WebData)
 import User.Avatar exposing (Avatar(..))
 import User.Email exposing (Email(..))
 import User.FriendStatus exposing (Status(..))
+import User.Handle exposing (Handle(..))
 import User.Name exposing (Name(..))
 import User.Uid exposing (Uid(..))
 
@@ -67,6 +68,8 @@ leftPlayer =
     , name = Name "Ilia"
     , friendStatus = Me
     , telegramId = Nothing
+    , handle = Handle "left"
+    , handleChanged = Nothing
     }
 
 rightPlayer =
@@ -76,6 +79,8 @@ rightPlayer =
     , name = Name "Rami Levi"
     , friendStatus = Friend
     , telegramId = Nothing
+    , handle = Handle "right"
+    , handleChanged = Nothing
     }
 
 type Msg

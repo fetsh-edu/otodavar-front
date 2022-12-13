@@ -1,8 +1,10 @@
 port module ProfileEdit exposing (..)
 
 import Browser exposing (Document)
-import Html exposing (Attribute, Html, button, div, img, input, span, text)
-import Html.Attributes exposing (attribute, autofocus, class, disabled, src, style, value)
+import Delay exposing (after)
+import Game.Vilidity as Validity exposing (Validity)
+import Html exposing (Attribute, Html, br, button, div, img, input, span, text)
+import Html.Attributes exposing (attribute, class, disabled, src, style, value)
 import Html.Events exposing (onClick, onInput)
 import Json.Decode as Decode
 import Json.Encode as Encode
@@ -13,11 +15,13 @@ import OtoApi
 import Push exposing (Push)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
+import Route
 import SharedModel exposing (SharedModel, updateUserInfo)
 import User.Avatar as Avatar
 import User.Bearer as Bearer
 import User.Email as Email
-import User.Name as Name
+import User.Handle as Handle exposing (Handle(..))
+import User.Name as Name exposing (Name(..))
 import User.User as User
 import View.Helper
 
@@ -25,28 +29,36 @@ port storeUserInfo : Maybe Decode.Value -> Cmd msg
 
 type alias Model =
     { sharedModel : SharedModel
-    , newName : String
+    , newName : Name
+    , newHandle : Handle
     , logoutAsked : Bool
-    , saveNameResult : WebData User.SimpleInfo
+    , saveInfoResult : WebData User.SimpleInfo
+    , handleValidity : WebData Validity
     , saveTelegramResult : WebData User.SimpleInfo
     }
 
 init : SharedModel -> (Model, Cmd Msg)
 init sharedModel =
     ( { sharedModel = sharedModel
-      , newName = sharedModel |> SharedModel.user |> Maybe.map (User.info >> .name >> Name.toString) |> Maybe.withDefault ""
+      , newName = sharedModel |> SharedModel.user |> Maybe.map (User.info >> .name) |> Maybe.withDefault (Name "")
+      , newHandle = sharedModel |> SharedModel.user |> Maybe.map (User.info >> .handle) |> Maybe.withDefault (Handle "")
       , logoutAsked = False
-      , saveNameResult = NotAsked
+      , saveInfoResult = NotAsked
       , saveTelegramResult = NotAsked
+      , handleValidity = NotAsked
       }
-    , Cmd.none
+    , after 100 UpdateData
     )
 
 type Msg
     = NoOp
+    | UpdateData
     | OnUserNameChange String
-    | SaveName
-    | HandleNameSaved (WebData User.SimpleInfo)
+    | OnHandleChange Handle
+    | OnHandleChangeDelayed Handle
+    | HandleValidity (WebData Validity)
+    | SaveInfo
+    | HandleInfoSaved (WebData User.SimpleInfo)
     | HandleTelegramSaved (WebData User.SimpleInfo)
     | ConfirmLogout
     | DeclineLogout
@@ -75,17 +87,38 @@ update msg model =
     case msg of
         NoOp ->
             (model, Cmd.none)
+        UpdateData ->
+            ( {model
+            | newName = model.sharedModel |> SharedModel.user |> Maybe.map (User.info >> .name) |> Maybe.withDefault (Name "")
+            , newHandle = model.sharedModel |> SharedModel.user |> Maybe.map (User.info >> .handle) |> Maybe.withDefault (Handle "")
+            }
+            , Cmd.none)
         OnUserNameChange str ->
-            ( { model | newName = str }, Cmd.none )
-        SaveName ->
-            ( { model | saveNameResult = Loading }, save HandleNameSaved (model.sharedModel) (Encode.object [ ( "name", Encode.string model.newName )]) User.decoderInfo )
-        HandleNameSaved a ->
+            ( { model | newName = (Name str) }, Cmd.none )
+        OnHandleChange str ->
+            ( { model | newHandle = str }, after 600 (OnHandleChangeDelayed str) )
+        OnHandleChangeDelayed str ->
+            if str == model.newHandle then
+                ( { model | handleValidity = Loading }, checkValidHandle model.sharedModel str )
+            else
+                (model, Cmd.none)
+        SaveInfo ->
             let
-                newModel = { model | saveNameResult = a }
+                payload = Encode.object [ ( "name", Name.encode model.newName ), ("user_name", Handle.encode model.newHandle)]
+            in
+            ( { model | saveInfoResult = Loading }, save HandleInfoSaved (model.sharedModel) payload User.decoderInfo )
+        HandleInfoSaved a ->
+            let
+                newModel = { model | saveInfoResult = a }
             in
             case a of
                 RemoteData.Success newInfo ->
-                    ( { newModel | sharedModel = model.sharedModel |> updateUserInfo newInfo, newName = newInfo.name |> Name.toString }
+                    ({ newModel
+                     | sharedModel = model.sharedModel |> updateUserInfo newInfo
+                     , newName = newInfo.name
+                     , newHandle = newInfo.handle
+                     , handleValidity = NotAsked
+                     }
                     , storeUserInfo (Just (User.encodeUserInfo newInfo))
                     )
                 _ -> (newModel, Cmd.none)
@@ -112,6 +145,8 @@ update msg model =
                     ( { newModel | sharedModel = model.sharedModel |> updateUserInfo newInfo }, storeUserInfo (Just (User.encodeUserInfo newInfo)))
                 _ -> (newModel, Cmd.none)
 
+        HandleValidity webData ->
+           ({model | handleValidity = webData }, Cmd.none)
 
 
 save : (WebData a -> Msg) -> SharedModel -> Encode.Value -> Decode.Decoder a -> Cmd Msg
@@ -122,11 +157,19 @@ save toMsg sharedModel payload decoder =
     in
     sharedModel |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
+checkValidHandle :  SharedModel ->  Handle -> Cmd Msg
+checkValidHandle sharedModel handle =
+    let
+        url = (OtoApi.routes (sharedModel.apiUrl)).name_valid (Handle.toString handle)
+        message bearer = RemoteData.Http.getWithConfig (OtoApi.config bearer) url HandleValidity Validity.decoder
+    in
+    sharedModel |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+
 successView : Translator msg -> User.SimpleInfo -> Model -> Html.Html msg
 successView translator me model =
     div [ class "profile-page container mx-auto px-4 mt-8 mb-4 pb-4 md:mt-28 md:max-w-5xl"]
         [ div
-            [ class "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text" ]
+            [ class "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-variant-text" ]
             [ div
                 [ class "px-6 py-4"]
                 [ div
@@ -141,15 +184,67 @@ successView translator me model =
                     ]
                 , div
                     [ class "flex flex-row items-baseline mt-4" ]
-                    [ span [class "text-xs w-20 capitalize"] [text "Username"]
+                    [ span [class "text-xs w-20 capitalize"] [text "Name"]
                     , input
-                        [ value model.newName
+                        [ value (Name.toString model.newName)
                         , style "appearance" "none"
-                        , class "bg-transparent focus:outline-none w-44 border-b-2 py-1 border-dashed"
+                        , class "bg-transparent focus:outline-none w-44 border-b py-1 border-dashed"
                         , onInput (translator.toSelf << OnUserNameChange)
                         ]
                         []
                     ]
+                ,div
+                    [ class "flex flex-row items-baseline mt-4" ]
+                    [ span [class "text-xs w-20 capitalize"] [text "Url"]
+                    , case me.handleChanged of
+                        Nothing ->
+                            span
+                                [ class "flex flex-col"]
+                                [ input
+                                    [ value (Handle.toString model.newHandle)
+                                    , style "appearance" "none"
+                                    , class "bg-transparent focus:outline-none w-44 border-b py-1 border-dashed"
+                                    , onInput (translator.toSelf << OnHandleChange << Handle)
+                                    ]
+                                    []
+                                , span
+                                    [ class "flex text-xs pt-4 items-center"]
+                                    (case model.handleValidity of
+                                         NotAsked ->
+                                             [ span [ class "text-base material-symbols-outlined mr-2" ] [ text "info" ]
+                                             , text ((model.sharedModel.url.host ++ (Route.routeToString <| Route.Profile <| model.newHandle)) ++ ".")
+                                             , br [] []
+                                             , text "Be careful! You can change it only once"
+                                             ]
+                                         Loading ->
+                                             [ span [ class "text-base material-symbols-outlined mr-2" ] [ text "refresh" ]
+                                             , text "Checking validity..."
+                                             ]
+                                         Failure e ->
+                                             [ span [ class "text-base material-symbols-outlined mr-2" ] [ text "error" ]
+                                             , text "Some unknown error"
+                                             ]
+                                         Success a ->
+                                             case a of
+                                                 Validity.Invalid e ->
+                                                     let
+                                                         errorLabel x =
+                                                            span [ class "flex items-center"] [ span [ class "text-base material-symbols-outlined mr-2" ] [ text "error" ]
+                                                            , text x
+                                                            ]
+                                                     in
+                                                        e |> List.map errorLabel |> span [ class "flex-col justify-left"] |> List.singleton
+                                                 Validity.Valid ->
+                                                     [ span [ class "text-base material-symbols-outlined mr-2" ] [ text "task_alt" ]
+                                                     , text ("Valid: " ++ (model.sharedModel.url.host ++ (Route.routeToString <| Route.Profile <| model.newHandle)))
+                                                     ]
+                                     )
+                                ]
+                        Just _ -> text <| (model.sharedModel.url.host ++ (Route.routeToString <| Route.Profile <| model.newHandle))
+                    ]
+
+
+
                 , div
                     [ class "flex flex-row items-baseline mt-4" ]
                     [ span [class "text-xs w-20 capitalize"] [text "email"], text (Email.toString me.email) ]
@@ -198,16 +293,16 @@ successView translator me model =
                                 , class "filter drop-shadow"
                                 , class "px-4 h-10"
                                 , disabled
-                                    (case  model.saveNameResult of
+                                    (case  model.saveInfoResult of
                                         Loading -> True
                                         _ -> False
                                     )
-                                , onClick (translator.toSelf SaveName)
+                                , onClick (translator.toSelf SaveInfo)
                                 ]
                                 [ span [ class "text-base material-symbols-outlined mr-2" ][ text "save_as"]
                                 , text "Save"
                                 ]
-                            , case model.saveNameResult of
+                            , case model.saveInfoResult of
                                 Loading ->
                                     span
                                         [ class "text-base animate-spin flex justify-center items-center material-symbols-outlined mr-0" ]

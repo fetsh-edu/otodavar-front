@@ -14,6 +14,7 @@ import Url exposing (Url)
 import User.Avatar as Avatar
 import User.Bearer as Bearer
 import User.FriendStatus exposing (Status(..))
+import User.Handle exposing (Handle)
 import User.Name as Name
 import User.Uid as Uid exposing (Uid)
 import User.User as User exposing (User)
@@ -23,14 +24,14 @@ import View.Helper exposing (nbsp)
 
 type alias Model =
     { session : SharedModel
-    , uid : Uid
+    , handle : Handle
     , flow : WebData User.FullInfo
     , friendRequest : WebData User.FullInfo
     , confirmUnfriend : Maybe FriendRequest
     }
 
 type alias FriendRequest
-    = { friend : Uid, resource : Uid}
+    = { friend : Handle, resource : Handle}
 
 type Msg
     = HandleProfileResponse (WebData User.FullInfo)
@@ -40,9 +41,9 @@ type Msg
     | AcceptFriendRequested FriendRequest
     | ConfirmUnfriend (Maybe FriendRequest)
 
-init : SharedModel -> Uid -> (Model, Cmd Msg)
-init session uid =
-    ({session = session, uid = uid, flow = Loading, friendRequest = NotAsked, confirmUnfriend = Nothing}, get session uid)
+init : SharedModel -> Handle -> (Model, Cmd Msg)
+init session handle =
+    ({session = session, handle = handle, flow = Loading, friendRequest = NotAsked, confirmUnfriend = Nothing}, get session handle)
 
 
 updateSession : SharedModel -> Model -> Model
@@ -78,7 +79,7 @@ update msg model =
             ( { model | confirmUnfriend = fr }, Cmd.none )
 
 
-friendRequest : SharedModel -> { friend : Uid, resource : Uid } -> Cmd Msg
+friendRequest : SharedModel -> FriendRequest -> Cmd Msg
 friendRequest session {friend, resource} =
     let
         url = (OtoApi.routes (session.apiUrl)).friend.request { uid = friend, resource = (Just resource) }
@@ -88,7 +89,7 @@ friendRequest session {friend, resource} =
 
 
 
-friendRequestAccept : SharedModel -> { friend : Uid, resource : Uid } -> Cmd Msg
+friendRequestAccept : SharedModel -> FriendRequest -> Cmd Msg
 friendRequestAccept session {friend, resource}  =
     let
         url = (OtoApi.routes session.apiUrl).friend.accept { uid = friend, resource = (Just resource) }
@@ -97,7 +98,7 @@ friendRequestAccept session {friend, resource}  =
     session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
 
-friendRequestRemove : SharedModel -> { friend : Uid, resource : Uid } -> Cmd Msg
+friendRequestRemove : SharedModel -> FriendRequest -> Cmd Msg
 friendRequestRemove session {friend, resource} =
     let
         url = (OtoApi.routes session.apiUrl).friend.remove { uid = friend, resource = (Just resource) }
@@ -105,7 +106,7 @@ friendRequestRemove session {friend, resource} =
     in
     session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
 
-get : SharedModel -> Uid -> Cmd Msg
+get : SharedModel -> Handle -> Cmd Msg
 get session uid =
     let
         url = (OtoApi.routes session.apiUrl).profile uid
@@ -198,13 +199,13 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser fr =
                  case friendStatus of
                      Me -> text ""
                      Unknown ->
-                         actionButton { icon = "person_add", title = Just "Add", action = Just (toSelf (AddFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "add", shy = False }
+                         actionButton { icon = "person_add", title = Just "Add", action = Just (toSelf (AddFriendRequested { friend = pageUser.handle, resource = pageUser.handle})), id_ = "add", shy = False }
                      Friend ->
-                         actionButton { icon = "person_remove", title = Nothing, action = Just (toSelf (ConfirmUnfriend (Just { friend = pageUser.uid, resource = pageUser.uid}))), id_ = "remove", shy = True }
+                         actionButton { icon = "person_remove", title = Nothing, action = Just (toSelf (ConfirmUnfriend (Just { friend = pageUser.handle, resource = pageUser.handle}))), id_ = "remove", shy = True }
                      Requested ->
                          actionButton { icon = "hourglass_top", title = Just "Pending approval", action = Nothing, id_ = "remove", shy = False }
                      Wannabe ->
-                         actionButton { icon = "person_add", title = Just "Accept", action = Just (toSelf (AcceptFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove", shy = False }
+                         actionButton { icon = "person_add", title = Just "Accept", action = Just (toSelf (AcceptFriendRequested { friend = pageUser.handle, resource = pageUser.handle})), id_ = "remove", shy = False }
                     --
         playButton =
             if friendStatus == Friend then
@@ -226,7 +227,7 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser fr =
                     [ friendButton, playButton ]
                 Just fr_ ->
                     [ actionButton { icon = "cancel", title = Just "Cancel", action = Just (toSelf (ConfirmUnfriend Nothing)), id_ = "remove", shy = False }
-                    , actionButton { icon = "person_remove", title = Just "Remove", action = Just (toSelf (RemoveFriendRequested { friend = pageUser.uid, resource = pageUser.uid})), id_ = "remove", shy = False }
+                    , actionButton { icon = "person_remove", title = Just "Remove", action = Just (toSelf (RemoveFriendRequested { friend = pageUser.handle, resource = pageUser.handle})), id_ = "remove", shy = False }
                     ]
 
         counters =
@@ -282,7 +283,7 @@ incomingRequests { toSelf } me pageUser =
             actionButton
                 { icon = "person_add"
                 , title = Nothing
-                , action = Just (toSelf (AcceptFriendRequested {friend = user.uid, resource = pageUser.uid}))
+                , action = Just (toSelf (AcceptFriendRequested {friend = user.handle, resource = pageUser.handle}))
                 , id_ = "accept" ++ (Uid.toString user.uid)
                 , shy = False
                 }
@@ -337,7 +338,7 @@ friendsList ( { toSelf, onGameStart } as translator) me pageUser =
                     actionButton
                         { icon = "person_add"
                         , title = Nothing
-                        , action = Just (toSelf (AcceptFriendRequested {friend = user.uid, resource = pageUser.uid}))
+                        , action = Just (toSelf (AcceptFriendRequested {friend = user.handle, resource = pageUser.handle}))
                         , id_ = "accept" ++ (Uid.toString user.uid)
                         , shy = False
                         }
@@ -345,7 +346,7 @@ friendsList ( { toSelf, onGameStart } as translator) me pageUser =
                     actionButton
                         { icon = "person_add"
                         , title = Nothing
-                        , action = Just (toSelf (AddFriendRequested { friend = user.uid, resource = pageUser.uid}))
+                        , action = Just (toSelf (AddFriendRequested { friend = user.handle, resource = pageUser.handle}))
                         , id_ = "add_friend" ++ (Uid.toString user.uid)
                         , shy = False
                         }
@@ -378,7 +379,7 @@ friendView actionButton_ other =
      div
         [ class "flex flex-row items-center"]
         [ a
-            [ Route.href (other |> .uid |> Route.Profile)
+            [ Route.href (other |> .handle |> Route.Profile)
             , class "h-12 w-12 m-2 invisible-click"
             ]
             [ img
@@ -388,7 +389,7 @@ friendView actionButton_ other =
                 ] []
             ]
         , a
-            [ Route.href (other |> .uid |> Route.Profile)
+            [ Route.href (other |> .handle |> Route.Profile)
             , class "ml-2 flex-1 py-3 invisible-click"
             ]
             [ span
@@ -404,7 +405,7 @@ friendView actionButton_ other =
 shareButton userInfo session =
     let
         rootUrl = session |> SharedModel.url |> Login.rootUrl
-        route = Url.toString {rootUrl | path = (userInfo |> .uid |> Route.Profile |> Route.routeToString)}
+        route = Url.toString {rootUrl | path = (userInfo |> .handle |> Route.Profile |> Route.routeToString)}
     in
     Html.node "clipboard-copy"
         [ Html.Attributes.value route, class "flex w-10 w-10 primary on-primary-text min-w-min"

@@ -4,6 +4,7 @@ import Http
 import RemoteData.Http exposing (defaultConfig)
 import Url exposing (Protocol(..), Url)
 import Url.Builder
+import User.Handle as Handle exposing (Handle)
 import User.Uid as Uid exposing (Uid)
 
 
@@ -12,14 +13,15 @@ routes url__ =
         url_ = url url__
     in
     { jwt = url_ ("/jwt") Nothing
-    , profile = (\uid -> url_ ("/api/v1/users/" ++ (Uid.toString uid)) Nothing )
+    , profile = (\uid -> url_ ("/api/v1/users/" ++ (Handle.toString uid)) Nothing )
     , update_profile = url_ ("/api/v1/users/update") Nothing
     , me = url_ ("/api/v1/users/me") Nothing
     , home = url_ ("/api/v1/games") Nothing
+    , name_valid = (\str -> url_ ("/api/v1/users/name_valid") (Just ("user_name="++str)) )
     , friend =
-        { remove = (\{uid, resource} -> url_ ("/api/v1/users/" ++ (Uid.toString uid) ++ "/unfriend") (resourceQuery resource))
-        , accept = (\{uid, resource} -> url_ ("/api/v1/users/" ++ (Uid.toString uid) ++ "/accept") (resourceQuery resource))
-        , request = (\{uid, resource} -> url_ ("/api/v1/users/" ++ (Uid.toString uid) ++ "/friend") (resourceQuery resource))
+        { remove = (\{uid, resource} -> url_ ("/api/v1/users/" ++ (Handle.toString uid) ++ "/unfriend") (resourceQuery resource))
+        , accept = (\{uid, resource} -> url_ ("/api/v1/users/" ++ (Handle.toString uid) ++ "/accept") (resourceQuery resource))
+        , request = (\{uid, resource} -> url_ ("/api/v1/users/" ++ (Handle.toString uid) ++ "/friend") (resourceQuery resource))
         }
     , notifications =
         { index = url_ ("/api/v1/notifications") Nothing
@@ -61,10 +63,10 @@ config bearer =
     | headers = [(Http.header "Authorization" bearer), RemoteData.Http.acceptJson]
     }
 
-resourceQuery : Maybe Uid -> Maybe String
+resourceQuery : Maybe Handle -> Maybe String
 resourceQuery  =
     Maybe.andThen
-        ( Uid.toString
+        ( Handle.toString
         >> Url.Builder.string "resource"
         >> List.singleton
         >> Url.Builder.toQuery

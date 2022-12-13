@@ -391,7 +391,7 @@ currentGuess translator guessText sGame guessData =
             , span
                 [ class "flex items-center w-40 flex-col z-1 relative" ]
                 [ case opponent sGame of
-                    Just user -> a [ Route.href (user.uid |> Route.Profile)] [Avatar.img user.avatar "w-20 h-20  filter drop-shadow"]
+                    Just user -> a [ Route.href (user.handle |> Route.Profile)] [Avatar.img user.avatar "w-20 h-20  filter drop-shadow"]
                     Nothing -> span [ class "surface w-20 h-20 filter drop-shadow rounded-lg flex items-center justify-center"] [span [ class "material-symbols-outlined md-72" ][ text "psychology_alt" ]]
                 , if (payload sGame).status == Status.Closed
                     then text View.Helper.nbsp

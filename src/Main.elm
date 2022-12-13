@@ -505,7 +505,7 @@ drawer model =
                     a
                       [ class "flex relative items-center rounded-md cursor-pointer drawer-item h-10 px-2 py-6 mx-2 mb-2"
                       , onClick HideDrawer
-                      , Route.href (me |> User.info |> .uid |> Route.Profile)
+                      , Route.href (me |> User.info |> .handle |> Route.Profile)
                       ]
                       [ span [ class "material-symbols-outlined mr-4" ] [ text "groups"]
                       , text "Friends"

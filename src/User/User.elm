@@ -8,6 +8,7 @@ import User.Avatar as Avatar exposing (Avatar)
 import User.Bearer as Bearer exposing (Bearer)
 import User.Email as Email exposing (Email)
 import User.FriendStatus as FriendStatus
+import User.Handle as Handle exposing (Handle)
 import User.Name as Name exposing (Name)
 import User.Uid as Uid exposing (Uid)
 
@@ -26,11 +27,14 @@ type alias SimpleInfo =
     , name : Name
     , friendStatus : FriendStatus.Status
     , telegramId : Maybe Int
+    , handle : Handle
+    , handleChanged : Maybe String
     }
 
 type alias FullInfo =
     { email : Email
     , uid : Uid
+    , handle : Handle
     , avatar : Avatar
     , name : Name
     , friendStatus : FriendStatus.Status
@@ -98,11 +102,12 @@ encodeUserInfo uInfo =
                 Nothing -> Encode.null
                 Just some -> Encode.int some
           )
+        , ( "user_name", Handle.encode uInfo.handle)
         ]
 
 decoderInfo : Decoder SimpleInfo
 decoderInfo =
-    Decode.map6 SimpleInfo
+    Decode.map8 SimpleInfo
         (Decode.field "email" Email.decoder)
         (Decode.field "uid" Uid.decoder)
         (Decode.field "avatar" Avatar.decoder)
@@ -112,10 +117,15 @@ decoderInfo =
              [ Decode.field "telegram_id" (Decode.nullable Decode.int)
              , Decode.succeed Nothing
              ])
+        (Decode.field "user_name" Handle.decoder)
+        (Decode.oneOf
+             [ Decode.field "user_name_changed_at" (Decode.nullable Decode.string)
+             , Decode.succeed Nothing
+             ])
 
 decoderSimpleInfo2 : Decoder SimpleInfo
 decoderSimpleInfo2 =
-    Decode.map6 SimpleInfo
+    Decode.map8 SimpleInfo
         (at ["data", "email"] Email.decoder)
         (at ["data", "uid"] Uid.decoder)
         (at ["data", "avatar"] Avatar.decoder)
@@ -125,12 +135,18 @@ decoderSimpleInfo2 =
              [ at ["data", "telegram_id"] (Decode.nullable Decode.int)
              , Decode.succeed Nothing
              ])
+        (at ["data", "user_name"] Handle.decoder)
+        (Decode.oneOf
+             [ at ["data", "user_name_changed_at"] (Decode.nullable Decode.string)
+             , Decode.succeed Nothing
+             ])
 
 decoderFullInfo : Decoder FullInfo
 decoderFullInfo =
     Decode.succeed FullInfo
          |> Decode.map2 (|>) (Decode.field "email" Email.decoder)
          |> Decode.map2 (|>) (Decode.field "uid" Uid.decoder)
+         |> Decode.map2 (|>) (Decode.field "user_name" Handle.decoder)
          |> Decode.map2 (|>) (Decode.field "avatar" Avatar.decoder)
          |> Decode.map2 (|>) (Decode.field "name" Name.decoder)
          |> Decode.map2 (|>) (Decode.field "friend_status" FriendStatus.decoder)

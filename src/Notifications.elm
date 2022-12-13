@@ -13,6 +13,7 @@ import Route
 import Url exposing (Url)
 import User.Bearer as Bearer exposing (Bearer)
 import Time
+import User.Handle exposing (Handle(..))
 import User.Name exposing (Name(..))
 import User.Uid exposing (Uid(..))
 
@@ -29,8 +30,8 @@ type alias Notification =
     }
 
 type Payload
-    = FriendRequest Uid Name
-    | FriendAccept Uid Name
+    = FriendRequest Handle Name
+    | FriendAccept Handle Name
     | GameCreated Uid Name
     | GameAccepted Uid Name
     | Unknown String
@@ -69,8 +70,8 @@ payloadDecoder =
                     case action of
                         "friend_request" -> Decode.map2 FriendRequest |> friendRequestDecoder
                         "friend_accept" -> Decode.map2 FriendAccept |> friendRequestDecoder
-                        "game_created" -> Decode.map2 GameCreated |> friendRequestDecoder
-                        "game_accepted" -> Decode.map2 GameAccepted |> friendRequestDecoder
+                        "game_created" -> Decode.map2 GameCreated |> gameRequestDecoder
+                        "game_accepted" -> Decode.map2 GameAccepted |> gameRequestDecoder
                         str -> Decode.succeed (Unknown ("Action: " ++ str))
                 )
         , keyValuePairs |> Decode.map Unknown
@@ -85,11 +86,18 @@ keyValuePairs =
         |> Decode.map (List.map (\(a,b) -> a ++ " : " ++ b) >> String.join ", ")
 
 
-friendRequestDecoder a =
-    a
-        (Decode.map Uid (Decode.field "uid" Decode.string))
+friendRequestDecoder : (Decoder Handle -> Decoder Name -> Decoder Payload) -> Decoder Payload
+friendRequestDecoder payload =
+    payload
+        (Decode.map Handle (Decode.field "uid" Decode.string))
         (Decode.map Name (Decode.field "name" Decode.string))
 
+
+gameRequestDecoder : (Decoder Uid -> Decoder Name -> Decoder Payload) -> Decoder Payload
+gameRequestDecoder payload =
+    payload
+        (Decode.map Uid (Decode.field "uid" Decode.string))
+        (Decode.map Name (Decode.field "name" Decode.string))
 
 
 get : Url -> (WebData (List Notification) -> msg) -> Maybe Bearer -> Cmd msg
