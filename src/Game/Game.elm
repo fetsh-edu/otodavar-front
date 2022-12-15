@@ -313,34 +313,39 @@ currentGuess : Translator msg -> String -> State -> WebData Game -> Html msg
 currentGuess translator guessText sGame guessData =
     let
         speechBubble =
-            case sGame of
-                Others _ _ _ -> text ""
-                Mine _ _ _ p ->
-                    div
-                        [ class "px-3"
-                        , case guessData of
-                          RemoteData.Loading -> class "animate-pulse"
-                          RemoteData.Failure _ -> class ""
-                          _ -> class ""
-                        ]
-                        [ div
-                            [ class "flex z-10 mt-2 surface-7 on-surface-text text-sm p-2 pl-3 w-full h-12 rounded-lg filter drop-shadow speech"
-                            , if (payload sGame |> .status) == Status.Closed
-                              then class "speech-left speech-right"
-                              else class "speech-left"
-                            ] (bubbleContent p)
-                        ]
+            div
+                [ class "px-3"
+                , case guessData of
+                  RemoteData.Loading -> class "animate-pulse"
+                  RemoteData.Failure _ -> class ""
+                  _ -> class ""
+                ]
+                [ div
+                    [ class "flex z-10 mt-2 surface-7 on-surface-text text-sm p-2 pl-3 w-full h-12 rounded-lg filter drop-shadow speech"
+                    , if (payload sGame |> .status) == Status.Closed
+                      then class "speech-left speech-right"
+                      else
+                        case sGame of
+                            Mine _ _ _ _ -> class "speech-left"
+                            Others _ _ _ -> class ""
+                    ] bubbleContent
+                ]
 
-        bubbleContent : Payload -> List (Html msg)
-        bubbleContent p =
-            case p.status of
-                Status.Closed ->
+        bubbleContent : List (Html msg)
+        bubbleContent =
+            let
+                p = payload sGame
+            in
+            case (sGame, p.status) of
+                (_, Status.Closed) ->
                     case p.question of
                         Nothing -> [text ""]
                         Just (Round.Incomplete _) -> [text ""]
                         Just (Round.Complete w _) ->
                             [ div [ class "flex w-full justify-center items-center font-medium text-lg truncate overflow-ellipses"] [span [class "uppercase"] [text w.word]]]
-                Status.Open ->
+                (Others _ _ _, Status.Open) ->
+                    [ div [ class "flex w-full justify-center items-center font-medium text-lg truncate overflow-ellipses"] [span [class "uppercase"] [text "Game in process..."]]]
+                (Mine _ _ _ _, Status.Open) ->
                     case (p.guess, guessData) of
                         (LeftGuess w, _) ->
                             [ div [ class "flex w-full justify-center items-center font-medium text-lg truncate overflow-ellipses"] [span [class "uppercase"] [text w.word]]]
@@ -381,12 +386,15 @@ currentGuess translator guessText sGame guessData =
             [ span
                 [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ]
                 [ Avatar.img (leftPlayer sGame).avatar "w-20 h-20  filter drop-shadow"
-                , span
-                    []
-                    [ case sGame of
+                , case sGame of
                       Mine _ _ _ _ -> text ""
-                      Others l _ _ -> text <| Name.toString l.name
-                    ]
+                      Others l _ p_ ->
+                          if p_.status == Status.Closed
+                              then text View.Helper.nbsp
+                              else span
+                                  [ class "pt-2 text-sm on-surface-variant-text truncate overflow-ellipses" ]
+                                  [ text <| Name.toString l.name
+                                  ]
                 ]
             , span
                 [ class "flex items-center w-40 flex-col z-1 relative" ]
@@ -400,10 +408,13 @@ currentGuess translator guessText sGame guessData =
                             [ opponent sGame |> Maybe.map (.name >> Name.toString) |> Maybe.withDefault "Random user" |> text
                             ]
                 -- READY CLOUD
-                , case (payload sGame).guess of
-                  RightGuess _ ->
-                      span [ class "thought absolute px-3 py-1 surface text-sm surface-7 on-surface-text -left-4 top-0"] [ text "ready"]
-                  _ -> text ""
+                , case sGame of
+                    Mine _ _ _ p_ ->
+                        case (p_).guess of
+                          RightGuess _ ->
+                              span [ class "thought absolute px-3 py-1 surface text-sm surface-7 on-surface-text -left-4 top-0"] [ text "ready"]
+                          _ -> text ""
+                    Others _ _ _ -> text ""
                 ]
             ]
         -- WIN ICON
