@@ -31,6 +31,7 @@ routes url__ =
         { start = url_ ("/api/v1/games/join") Nothing
         , show = (\uid -> url_ ("/api/v1/games/" ++ (Uid.toString uid)) Nothing )
         , archive = (\uid -> url_ ("/api/v1/games/" ++ (Uid.toString uid) ++ "/archive") Nothing )
+        , stalled  = url_ ("/api/v1/games/stalled") Nothing
         }
     , word =
         { create = url_ ("/api/v1/words") Nothing

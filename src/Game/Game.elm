@@ -385,7 +385,7 @@ currentGuess translator guessText sGame guessData =
         div [class "flex z-10 flex-row justify-around"]
             [ span
                 [ class "flex items-center w-40 flex-col truncate overflow-ellipses" ]
-                [ Avatar.img (leftPlayer sGame).avatar "w-20 h-20  filter drop-shadow"
+                [ a [ Route.href ((leftPlayer sGame).handle |> Route.Profile)] [Avatar.img (leftPlayer sGame).avatar "w-20 h-20  filter drop-shadow"]
                 , case sGame of
                       Mine _ _ _ _ -> text ""
                       Others l _ p_ ->

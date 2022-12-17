@@ -56,6 +56,10 @@ container_ classes =
 
 section : String -> String -> List (Html msg) -> Html msg
 section title_ class_ list =
+     sectionWithFooter title_ class_ list Nothing
+
+sectionWithFooter : String -> String -> List (Html msg) -> Maybe (List (Html.Attribute msg), List (Html msg)) -> Html msg
+sectionWithFooter title_ class_ list footer =
      div
          [ class "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
          [ div
@@ -64,8 +68,10 @@ section title_ class_ list =
             ]
             [ text title_ ]
          , div [ class "divide-y divide-light"] list
+         , case footer of
+             Nothing -> text ""
+             Just (attrs_, content_) -> div ([ class "rounded-b-lg py-2 px-4"] ++ attrs_) content_
          ]
-
 
 about : Html msg -> List (Html msg)
 about game = [okGo, description, game, rules]

@@ -1,16 +1,13 @@
 module Home exposing (..)
 
 import Browser exposing (Document)
-import Dict
-import Game.ComposedStatus as ComposedStatus
-import Game.GameStatus as GameStatus
-import Game.OtoGame as Game
+import Game.OtoGame as Game exposing (OtoGame)
 import Game.Games as Games exposing (Games)
 import Game.Game as SGame exposing (Game(..))
-import Helpers exposing (groupBy)
 import Html exposing (Html, a, div, span, text)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
+import Json.Decode as Decode
 import OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
@@ -25,6 +22,7 @@ import View.Helper exposing (nbsp)
 type alias Model =
     { session : SharedModel
     , home : WebData Games
+    , stalled : WebData (List OtoGame)
     }
 
 toSession : Model -> SharedModel
@@ -32,7 +30,7 @@ toSession model =
     model.session
 
 initModel : SharedModel -> Model
-initModel session = {session = session, home = NotAsked}
+initModel session = { session = session, home = NotAsked, stalled = NotAsked }
 
 init : SharedModel -> ( Model, Cmd Msg )
 init session =
@@ -45,14 +43,28 @@ updateSession : SharedModel -> Model -> Model
 updateSession session model =
     { model | session  = session }
 
-type Msg =
-    HomeReceived (WebData Games)
+type Msg
+    = HomeReceived (WebData Games)
+    | LoadStalled
+    | StalledReceived (WebData (List OtoGame))
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HomeReceived webData ->
             ( { model | home = webData }, Cmd.none )
+        LoadStalled ->
+            ( { model | stalled = Loading }, getStalled model.session )
+        StalledReceived some ->
+            let
+                newModel = { model | stalled = some }
+            in
+            case some of
+                Success games_ ->
+                    ( { newModel | home = RemoteData.map (\games -> { games | stalledPreviewGames = games_ }) model.home }
+                    , Cmd.none
+                    )
+                _ -> ( newModel, Cmd.none )
 
 
 type alias Translator msg =
@@ -60,7 +72,7 @@ type alias Translator msg =
     , onRandomLaunch : Maybe Uid -> msg
     }
 view : Translator msg -> Model -> Document msg
-view translator { session, home } =
+view translator { session, home, stalled } =
     let
         body =
             case SharedModel.user session of
@@ -70,7 +82,7 @@ view translator { session, home } =
                         NotAsked -> [ View.Helper.loadingContainer "Not asked" ]
                         Loading -> loadingContent
                         Failure e -> [ View.Helper.loadingContainer "Failure" ]
-                        Success a -> successContent translator user session a
+                        Success a -> successContent translator user session a stalled
 
     in
         { title = ""
@@ -78,6 +90,7 @@ view translator { session, home } =
         }
 
 
+loadingContent : List (Html msg)
 loadingContent =
     let
         fakeSection header list =
@@ -102,17 +115,16 @@ loadingContent =
         ]
     ]
 
-successContent : Translator msg -> User -> SharedModel -> Games -> List (Html msg)
-successContent { onRandomLaunch, toSelf } me session games =
+successContent : Translator msg -> User -> SharedModel -> Games -> WebData (List OtoGame)-> List (Html msg)
+successContent { onRandomLaunch, toSelf } me session games stalled =
     let
-        mappedGames = List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) <| games.activeGames
-        activeGames = groupBy (SGame.composedStatus >> ComposedStatus.toString) mappedGames
+        mappedGames games_ = List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) <| games_
     in
     [ View.Helper.container
-        [ winSection  <| Maybe.withDefault [] <| Dict.get (ComposedStatus.toString ComposedStatus.Finished) <| activeGames
-        , myTurnSection <| Maybe.withDefault [] <| Dict.get (ComposedStatus.toString ComposedStatus.MyTurn) <| activeGames
+        [ winSection  <| mappedGames games.notSeenGames
+        , myTurnSection <| mappedGames games.myTurnGames
         , playButtonsSection me games.randomGame onRandomLaunch
-        , partnersTurnSection <| Maybe.withDefault [] <| Dict.get (ComposedStatus.toString ComposedStatus.PartnersTurn) <| activeGames
+        , partnersTurnSection toSelf stalled games.stalledCount games.totalStalledCount <| mappedGames games.stalledPreviewGames
         , oldGamesSection (games.archivedGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)))
         ]
     ]
@@ -125,9 +137,38 @@ oldGamesSection : List SGame.Game -> Html msg
 oldGamesSection games =
     gamesSection "Previous Games" "tertiary-container on-tertiary-container-text" games
 
-partnersTurnSection : List SGame.Game -> Html msg
-partnersTurnSection games =
-    gamesSection "Waiting for partner" "secondary-container on-secondary-container-text" games
+partnersTurnSection : (Msg -> msg) -> WebData (List OtoGame)-> Int -> Int -> List SGame.Game -> Html msg
+partnersTurnSection toMsg stalled stalledCount totalStalledCount games =
+    let
+        footer =
+            if stalledCount < totalStalledCount
+            then
+                case stalled of
+                    Success _ -> Nothing
+                    _ ->
+                        ( Just
+                            (
+                                [ class "uppercase text-center invisible-click surface-1 cursor-pointer select-none"
+                                , case stalled of
+                                    Loading -> class ""
+                                    _ -> onClick (toMsg LoadStalled)
+                                ]
+                                , [ case stalled of
+                                    Loading -> text "Loading"
+                                    NotAsked -> text ("Show all (+" ++ String.fromInt(totalStalledCount - stalledCount) ++ ")" )
+                                    Failure _ -> text "Error"
+                                    Success _ -> text ""
+                                  ]
+                            )
+                        )
+            else Nothing
+
+    in
+    gamesSectionWithFooter
+        "Waiting for partner"
+        "secondary-container on-secondary-container-text"
+        games
+        footer
 
 winSection : List SGame.Game -> Html msg
 winSection games =
@@ -186,16 +227,26 @@ playARandomButton action =
 
 
 gamesSection : String -> String -> List SGame.Game -> Html msg
-gamesSection title classes games =
-    if List.isEmpty games
-    then text ""
-    else View.Helper.section title (classes ++ " uppercase text-center") (List.map (SGame.gamePreview) games)
+gamesSection title classes games = gamesSectionWithFooter title classes games Nothing
 
+gamesSectionWithFooter : String -> String -> List SGame.Game -> Maybe (List (Html.Attribute msg), List (Html msg)) -> Html msg
+gamesSectionWithFooter title classes games footer =
+    if List.isEmpty games
+        then text ""
+        else View.Helper.sectionWithFooter title (classes ++ " uppercase text-center") (List.map (SGame.gamePreview) games) footer
 
 get : SharedModel -> Cmd Msg
 get session =
     let
         url = (OtoApi.routes session.apiUrl).home
         message bearer = RemoteData.Http.getWithConfig (config bearer) url HomeReceived Games.decoder
+    in
+    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+
+getStalled : SharedModel -> Cmd Msg
+getStalled session =
+    let
+        url = (OtoApi.routes session.apiUrl).game.stalled
+        message bearer = RemoteData.Http.getWithConfig (config bearer) url StalledReceived (Decode.list Game.decoder)
     in
     session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
