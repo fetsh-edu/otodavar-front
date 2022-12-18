@@ -17,7 +17,7 @@ import Json.Encode as Encode
 import Jwt exposing (decodeToken, errorToString)
 import OAuth exposing (ErrorCode(..), ResponseType(..), Token)
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..), defaultAuthorizationErrorParser, defaultErrorParser, defaultTokenParser)
-import OtoApi
+import Api.OtoApi as OtoApi
 import SharedModel exposing (SharedModel)
 import Url exposing (Protocol(..), Url)
 import Url.Parser as Url exposing ((<?>))

@@ -1,4 +1,4 @@
-module OtoApi exposing (..)
+module Api.OtoApi exposing (..)
 
 import Http
 import RemoteData.Http exposing (defaultConfig)

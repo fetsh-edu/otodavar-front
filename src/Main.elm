@@ -19,7 +19,7 @@ import Msg exposing (Msg(..))
 import Notifications exposing (Notification, Notifications, onNotification)
 import Notifications.BrowserNotifications as BrowserNotifications
 import OAuth.Implicit as OAuth exposing (AuthorizationResultWith(..))
-import OtoApi
+import Api.OtoApi as OtoApi
 import Profile
 import ProfileEdit
 import Notifications.PushPermission as PushPermission

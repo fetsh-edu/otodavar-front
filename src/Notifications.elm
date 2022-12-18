@@ -6,7 +6,7 @@ import Html.Events exposing (onClick)
 import Iso8601
 import Json.Decode as Decode exposing (Decoder, Error)
 import Json.Encode as Encode exposing (Value)
-import OtoApi exposing (config)
+import Api.OtoApi as OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Route

@@ -11,7 +11,7 @@ import Json.Encode as Encode
 import Notifications.BrowserNotifications exposing (BrowserNotifications)
 import Notifications.PushPermission as PushPermission
 import Notifications.TelegramAuth as TelegramAuth exposing (TelegramAuth, telegramDataDecoder)
-import OtoApi
+import Api.OtoApi as OtoApi
 import Push exposing (Push)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http

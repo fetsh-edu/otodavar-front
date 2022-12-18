@@ -13,7 +13,7 @@ import Html.Attributes exposing (class)
 import Http exposing (Error(..))
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
-import OtoApi exposing (config)
+import Api.OtoApi as OtoApi exposing (config)
 import RemoteData exposing (RemoteData(..), WebData)
 import RemoteData.Http
 import Route

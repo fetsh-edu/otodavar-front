@@ -1,25 +1,27 @@
 module Profile exposing (..)
 
+import Api.OtoRequest as OtoRequest
 import Browser exposing (Document)
+import Game.Game as Game exposing (Game)
 import Html exposing (Html, a, button, div, h3, h5, img, span, text)
 import Html.Attributes exposing (attribute, class, id, src)
 import Html.Events exposing (onClick)
 import Http exposing (Error(..))
 import Json.Encode as Encode
 import Login
-import OtoApi exposing (config)
+import Api.OtoApi as OtoApi
 import Route
 import SharedModel exposing (SharedModel)
 import Url exposing (Url)
 import User.Avatar as Avatar
-import User.Bearer as Bearer
+import User.Bearer exposing (Bearer)
 import User.FriendStatus exposing (Status(..))
+import User.FullInfo as User
 import User.Handle exposing (Handle)
 import User.Name as Name
 import User.Uid as Uid exposing (Uid)
 import User.User as User exposing (User)
 import RemoteData exposing (RemoteData(..), WebData)
-import RemoteData.Http
 import View.Helper exposing (nbsp)
 
 type alias Model =
@@ -43,7 +45,14 @@ type Msg
 
 init : SharedModel -> Handle -> (Model, Cmd Msg)
 init session handle =
-    ({session = session, handle = handle, flow = Loading, friendRequest = NotAsked, confirmUnfriend = Nothing}, get session handle)
+    ( { session = session
+      , handle = handle
+      , flow = Loading
+      , friendRequest = NotAsked
+      , confirmUnfriend = Nothing
+      }
+    , get (SharedModel.bearer session) session.apiUrl handle
+    )
 
 
 updateSession : SharedModel -> Model -> Model
@@ -55,64 +64,67 @@ toSession { session } = session
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        sharedModel = toSession model
+        bearer = SharedModel.bearer sharedModel
+        apiUrl = sharedModel.apiUrl
+    in
     case msg of
         HandleProfileResponse response ->
             ({model | flow = response }, Cmd.none)
 
         AddFriendRequested obj ->
-            ( {model | friendRequest = Loading}, friendRequest (toSession model) obj )
+            ( {model | friendRequest = Loading}, friendRequest bearer apiUrl obj )
 
         HandleFriendRequest webData ->
             case model.flow of
-                Success some ->
+                Success _ ->
                     ( {model | friendRequest = webData, flow = webData }, Cmd.none)
                 _ ->
                     (model, Cmd.none)
 
         RemoveFriendRequested obj ->
-            ( { model | friendRequest = Loading, confirmUnfriend = Nothing }, friendRequestRemove (toSession model) obj )
+            ( { model | friendRequest = Loading, confirmUnfriend = Nothing }, friendRequestRemove bearer apiUrl obj )
 
         AcceptFriendRequested obj ->
-            ( {model | friendRequest = Loading}, friendRequestAccept (toSession model) obj )
+            ( {model | friendRequest = Loading}, friendRequestAccept bearer apiUrl obj )
 
         ConfirmUnfriend fr ->
             ( { model | confirmUnfriend = fr }, Cmd.none )
 
 
-friendRequest : SharedModel -> FriendRequest -> Cmd Msg
-friendRequest session {friend, resource} =
-    let
-        url = (OtoApi.routes (session.apiUrl)).friend.request { uid = friend, resource = (Just resource) }
-        message bearer = RemoteData.Http.postWithConfig (OtoApi.config bearer) url HandleFriendRequest User.decoderFullInfo Encode.null
-    in
-    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+friendRequest : Maybe Bearer -> Url -> FriendRequest -> Cmd Msg
+friendRequest bearer apiUrl  {friend, resource} =
+    OtoRequest.post
+        bearer
+        ((OtoApi.routes (apiUrl)).friend.request { uid = friend, resource = (Just resource) })
+        HandleFriendRequest
+        User.decoderFullInfo Encode.null
 
 
+friendRequestAccept : Maybe Bearer -> Url -> FriendRequest -> Cmd Msg
+friendRequestAccept bearer apiUrl {friend, resource}  =
+    OtoRequest.post
+        bearer
+        ((OtoApi.routes apiUrl).friend.accept { uid = friend, resource = (Just resource) })
+        HandleFriendRequest
+        User.decoderFullInfo Encode.null
 
-friendRequestAccept : SharedModel -> FriendRequest -> Cmd Msg
-friendRequestAccept session {friend, resource}  =
-    let
-        url = (OtoApi.routes session.apiUrl).friend.accept { uid = friend, resource = (Just resource) }
-        message bearer = RemoteData.Http.postWithConfig (config bearer) url HandleFriendRequest User.decoderFullInfo Encode.null
-    in
-    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+friendRequestRemove : Maybe Bearer -> Url -> FriendRequest -> Cmd Msg
+friendRequestRemove bearer apiUrl {friend, resource} =
+    OtoRequest.post
+        bearer
+        ((OtoApi.routes apiUrl).friend.remove { uid = friend, resource = (Just resource) })
+        HandleFriendRequest
+        User.decoderFullInfo Encode.null
 
-
-friendRequestRemove : SharedModel -> FriendRequest -> Cmd Msg
-friendRequestRemove session {friend, resource} =
-    let
-        url = (OtoApi.routes session.apiUrl).friend.remove { uid = friend, resource = (Just resource) }
-        message bearer = RemoteData.Http.postWithConfig (config bearer) url HandleFriendRequest User.decoderFullInfo Encode.null
-    in
-    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
-
-get : SharedModel -> Handle -> Cmd Msg
-get session uid =
-    let
-        url = (OtoApi.routes session.apiUrl).profile uid
-        message bearer = RemoteData.Http.getWithConfig (config bearer) url HandleProfileResponse User.decoderFullInfo
-    in
-    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+get : Maybe Bearer -> Url -> Handle -> Cmd Msg
+get bearer apiUrl uid =
+    OtoRequest.get
+        bearer
+        ((OtoApi.routes apiUrl).profile uid)
+        HandleProfileResponse
+        User.decoderFullInfo
 
 type alias Translator msg =
     { toSelf : Msg -> msg
@@ -225,7 +237,7 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser fr =
             case fr of
                 Nothing ->
                     [ friendButton, playButton ]
-                Just fr_ ->
+                Just _ ->
                     [ actionButton { icon = "cancel", title = Just "Cancel", action = Just (toSelf (ConfirmUnfriend Nothing)), id_ = "remove", shy = False }
                     , actionButton { icon = "person_remove", title = Just "Remove", action = Just (toSelf (RemoveFriendRequested { friend = pageUser.handle, resource = pageUser.handle})), id_ = "remove", shy = False }
                     ]
@@ -240,13 +252,16 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser fr =
     in
     View.Helper.container_ [class "md:mt-28"]
             [ profileHead Nothing avatar actionButtons counters title_
+            , section "Ongoing game" "secondary-container on-secondary-container-text" (List.map (Game.gamePreview << Game.fromGame (me |> User.info |> .uid |> Just)) <| Maybe.withDefault [] <| pageUser.commonOpenGames)
             , incomingRequests translator me pageUser
-            , friendsList translator me pageUser
+            , friendsList translator pageUser
+            , section "Previous games" "secondary-container on-secondary-container-text" (List.map (Game.gamePreview << Game.fromGame (me |> User.info |> .uid |> Just)) <| Maybe.withDefault [] <|  pageUser.commonClosedGames)
             , pendingApproval me pageUser
             ]
 
 
 
+profileHead : Maybe (Html.Attribute msg) -> Html msg -> List (Html msg) -> List (Html msg) -> Html msg -> Html msg
 profileHead class_ avatar actionButtons counters title_ =
     div [ class "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"
         , Maybe.withDefault (class "") class_
@@ -276,6 +291,13 @@ profileHead class_ avatar actionButtons counters title_ =
         ]
 
 
+
+section : String -> String -> List (Html msg) -> Html msg
+section title classes list =
+    if List.isEmpty list
+        then text ""
+        else View.Helper.section title (classes ++ " uppercase text-center") list
+
 incomingRequests : Translator msg -> User -> User.FullInfo -> Html msg
 incomingRequests { toSelf } me pageUser =
     let
@@ -292,7 +314,7 @@ incomingRequests { toSelf } me pageUser =
         Nothing -> text ""
         Just users ->
             if List.length users > 0 && (pageUser.uid == (User.info me).uid) then
-                userList actionButton_ "Friend requests" "secondary-container on-secondary-container-text" users
+                section "Friend requests" "secondary-container on-secondary-container-text" (List.map (friendView actionButton_) users)
             else
                 text ""
 
@@ -303,13 +325,13 @@ pendingApproval me other =
         Nothing -> text ""
         Just users ->
             if List.length users > 0 && (other.uid == (User.info me).uid) then
-                userList (\x -> text "") "Pending" "error-container on-error-container-text" users
+                section "Pending" "error-container on-error-container-text" (List.map (friendView (always (text ""))) users)
             else
                 text ""
 
 
-friendsList : Translator msg -> User -> User.FullInfo -> Html msg
-friendsList ( { toSelf, onGameStart } as translator) me pageUser =
+friendsList : Translator msg -> User.FullInfo -> Html msg
+friendsList ( { toSelf, onGameStart } ) pageUser =
     let
         friendStatus = pageUser.friendStatus
 
@@ -356,22 +378,10 @@ friendsList ( { toSelf, onGameStart } as translator) me pageUser =
         Nothing -> text ""
         Just users ->
             if List.length users > 0 && (friendStatus == Me || friendStatus == Friend) then
-                userList actionButton_ "Friends" "tertiary-container on-tertiary-container-text" users
+                section "Friends" "tertiary-container on-tertiary-container-text" ((List.map (friendView actionButton_) users))
+
             else
                 text ""
-
-
-userList : (User.SimpleInfo -> Html msg) -> String -> String -> List User.SimpleInfo -> Html msg
-userList actionButton_ title_ class_ users =
-     div
-         [ class "relative flex flex-col min-w-0 break-words surface on-surface-text w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
-         [ div
-            [ class "rounded-t-lg py-2 px-4 font-bold"
-            , class class_
-            ]
-            [ text title_ ]
-         , div [ class "divide-y divide-light"] (List.map (friendView actionButton_) users)
-         ]
 
 
 friendView : (User.SimpleInfo -> Html msg) -> User.SimpleInfo -> Html msg
@@ -402,6 +412,7 @@ friendView actionButton_ other =
             ]
         ]
 
+shareButton : { a | handle : Handle } -> SharedModel -> Html msg
 shareButton userInfo session =
     let
         rootUrl = session |> SharedModel.url |> Login.rootUrl

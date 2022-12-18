@@ -31,21 +31,6 @@ type alias SimpleInfo =
     , handleChanged : Maybe String
     }
 
-type alias FullInfo =
-    { email : Email
-    , uid : Uid
-    , handle : Handle
-    , avatar : Avatar
-    , name : Name
-    , friendStatus : FriendStatus.Status
-    , gamesCount : Int
-    , friendsCount : Int
-    , friends : Maybe (List SimpleInfo)
-    , incomingFriendRequests : Maybe (List SimpleInfo)
-    , outgoingFriendRequests : Maybe (List SimpleInfo)
-    }
-
-
 build : Bearer -> SimpleInfo -> User
 build a b = User (Internals a b)
 
@@ -145,18 +130,3 @@ decoderSimpleInfo2 =
              [ at ["data", "user_name_changed_at"] (Decode.nullable Decode.string)
              , Decode.succeed Nothing
              ])
-
-decoderFullInfo : Decoder FullInfo
-decoderFullInfo =
-    Decode.succeed FullInfo
-         |> Decode.map2 (|>) (Decode.field "email" Email.decoder)
-         |> Decode.map2 (|>) (Decode.field "uid" Uid.decoder)
-         |> Decode.map2 (|>) (Decode.field "user_name" Handle.decoder)
-         |> Decode.map2 (|>) (Decode.field "avatar" Avatar.decoder)
-         |> Decode.map2 (|>) (Decode.field "name" Name.decoder)
-         |> Decode.map2 (|>) (Decode.field "friend_status" FriendStatus.decoder)
-         |> Decode.map2 (|>) (Decode.field "games_count" Decode.int)
-         |> Decode.map2 (|>) (Decode.field "friends_count" Decode.int)
-         |> Decode.map2 (|>) (Decode.maybe (Decode.field "friends" (Decode.list decoderInfo)))
-         |> Decode.map2 (|>) (Decode.maybe (Decode.field "incoming_friends" (Decode.list decoderInfo)))
-         |> Decode.map2 (|>) (Decode.maybe (Decode.field "outgoing_friends" (Decode.list decoderInfo)))

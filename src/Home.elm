@@ -1,5 +1,6 @@
 module Home exposing (..)
 
+import Api.OtoRequest as OtoRequest
 import Browser exposing (Document)
 import Game.OtoGame as Game exposing (OtoGame)
 import Game.Games as Games exposing (Games)
@@ -8,12 +9,12 @@ import Html exposing (Html, a, div, span, text)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
 import Json.Decode as Decode
-import OtoApi exposing (config)
+import Api.OtoApi as OtoApi
 import RemoteData exposing (RemoteData(..), WebData)
-import RemoteData.Http
 import Route
 import SharedModel exposing (SharedModel)
-import User.Bearer as Bearer
+import Url exposing (Url)
+import User.Bearer exposing (Bearer)
 import User.Handle exposing (Handle)
 import User.Uid exposing (Uid)
 import User.User as User exposing (SimpleInfo, User)
@@ -37,7 +38,7 @@ init session =
     let
         model = initModel session
     in
-    ( { model | home = Loading }, get session )
+    ( { model | home = Loading }, get (SharedModel.bearer session) (session.apiUrl) )
 
 updateSession : SharedModel -> Model -> Model
 updateSession session model =
@@ -54,7 +55,7 @@ update msg model =
         HomeReceived webData ->
             ( { model | home = webData }, Cmd.none )
         LoadStalled ->
-            ( { model | stalled = Loading }, getStalled model.session )
+            ( { model | stalled = Loading }, getStalled (SharedModel.bearer model.session) (model.session.apiUrl) )
         StalledReceived some ->
             let
                 newModel = { model | stalled = some }
@@ -235,18 +236,18 @@ gamesSectionWithFooter title classes games footer =
         then text ""
         else View.Helper.sectionWithFooter title (classes ++ " uppercase text-center") (List.map (SGame.gamePreview) games) footer
 
-get : SharedModel -> Cmd Msg
-get session =
-    let
-        url = (OtoApi.routes session.apiUrl).home
-        message bearer = RemoteData.Http.getWithConfig (config bearer) url HomeReceived Games.decoder
-    in
-    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+get : Maybe Bearer -> Url -> Cmd Msg
+get bearer apiUrl =
+    OtoRequest.get
+        bearer
+        ((OtoApi.routes apiUrl).home)
+        HomeReceived
+        Games.decoder
 
-getStalled : SharedModel -> Cmd Msg
-getStalled session =
-    let
-        url = (OtoApi.routes session.apiUrl).game.stalled
-        message bearer = RemoteData.Http.getWithConfig (config bearer) url StalledReceived (Decode.list Game.decoder)
-    in
-    session |> SharedModel.bearer|> Maybe.map (message << Bearer.toString) |> Maybe.withDefault Cmd.none
+getStalled : Maybe Bearer -> Url -> Cmd Msg
+getStalled bearer apiUrl =
+    OtoRequest.get
+        bearer
+        ((OtoApi.routes apiUrl).game.stalled)
+        StalledReceived
+        (Decode.list Game.decoder)
