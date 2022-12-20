@@ -9,6 +9,9 @@
     --md-sys-color-on-surface-dark-rgb: 235 255 217;
     --md-sys-color-on-tertiary-container-light-rgb: 0 32 32;
 
+    --md-sys-color-tertiary-container-dark-rgb: 30 78 77;
+    --md-sys-color-tertiary-container-light-rgb: 187 236 234;
+
 }
 :root.dark {
     --md-sys-color-on-tertiary-container-rgb: var(--md-sys-color-on-tertiary-container-dark-rgb);
@@ -18,6 +21,7 @@
     --md-sys-color-surface-3: rgb(var(--md-sys-color-primary-rgb) / 0.2);
     --md-sys-color-surface-7: rgb(var(--md-sys-color-surface-dark-rgb) / 0.8);
     --md-sys-color-on-surface-200: rgb(var(--md-sys-color-on-surface-dark-rgb) / 0.05);
+    --md-sys-color-tertiary-container-5: rgb(var(--md-sys-color-tertiary-container-dark-rgb) / 0.3);
 }
 :root, :root.light {
     --md-sys-color-on-tertiary-container-rgb: var(--md-sys-color-on-tertiary-container-light-rgb);
@@ -27,8 +31,13 @@
     --md-sys-color-surface-3: rgb(var(--md-sys-color-primary-rgb) / 0.2);
     --md-sys-color-surface-7: rgb(var(--md-sys-color-surface-light-rgb) / 0.8);
     --md-sys-color-on-surface-200: rgb(var(--md-sys-color-on-surface-light-rgb) / 0.05);
+    --md-sys-color-tertiary-container-5: rgb(var(--md-sys-color-tertiary-container-light-rgb) / 0.3);
 }
 
+
+.tertiary-container-5 {
+    background-color: var(--md-sys-color-tertiary-container-5);
+}
 
 .primary {
   background-color: var(--md-sys-color-primary);

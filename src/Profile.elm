@@ -30,7 +30,10 @@ type alias Model =
     , flow : WebData User.FullInfo
     , friendRequest : WebData User.FullInfo
     , confirmUnfriend : Maybe FriendRequest
+    , friendsTab : FriendsTab
     }
+
+type FriendsTab = Friends | Suggestions
 
 type alias FriendRequest
     = { friend : Handle, resource : Handle}
@@ -42,6 +45,7 @@ type Msg
     | RemoveFriendRequested FriendRequest
     | AcceptFriendRequested FriendRequest
     | ConfirmUnfriend (Maybe FriendRequest)
+    | ChangeFriendsTab FriendsTab
 
 init : SharedModel -> Handle -> (Model, Cmd Msg)
 init session handle =
@@ -50,6 +54,7 @@ init session handle =
       , flow = Loading
       , friendRequest = NotAsked
       , confirmUnfriend = Nothing
+      , friendsTab = Friends
       }
     , get (SharedModel.bearer session) session.apiUrl handle
     )
@@ -91,6 +96,9 @@ update msg model =
 
         ConfirmUnfriend fr ->
             ( { model | confirmUnfriend = fr }, Cmd.none )
+
+        ChangeFriendsTab friendsTab ->
+            ( { model | friendsTab = friendsTab }, Cmd.none )
 
 
 friendRequest : Maybe Bearer -> Url -> FriendRequest -> Cmd Msg
@@ -141,7 +149,7 @@ view translator model =
             Nothing -> [ text "SHOULDN'T BE POSSIBLE" ]
             Just me ->
                 case model.flow of
-                    Success pageUser -> [ successContent translator (model |> toSession) me pageUser model.confirmUnfriend]
+                    Success pageUser -> [ successContent translator (model |> toSession) me pageUser model.confirmUnfriend model.friendsTab]
                     NotAsked -> [View.Helper.loadingContainer "NOT ASKED"]
                     Loading -> [ loadingContent]
                     -- TODO: Handle all this
@@ -200,8 +208,8 @@ loadingContent =
 
 
 
-successContent : Translator msg -> SharedModel -> User -> User.FullInfo -> Maybe FriendRequest -> Html msg
-successContent ({ toSelf, onGameStart } as translator) session me pageUser fr =
+successContent : Translator msg -> SharedModel -> User -> User.FullInfo -> Maybe FriendRequest -> FriendsTab -> Html msg
+successContent ({ toSelf, onGameStart } as translator) session me pageUser fr friendsTab=
     let
         friendStatus = pageUser.friendStatus
         friendButton =
@@ -254,7 +262,7 @@ successContent ({ toSelf, onGameStart } as translator) session me pageUser fr =
             [ profileHead Nothing avatar actionButtons counters title_
             , section "Ongoing game" "secondary-container on-secondary-container-text" (List.map (Game.gamePreview << Game.fromGame (me |> User.info |> .uid |> Just)) <| Maybe.withDefault [] <| pageUser.commonOpenGames)
             , incomingRequests translator me pageUser
-            , friendsList translator pageUser
+            , friendsList translator pageUser friendsTab
             , section "Previous games" "secondary-container on-secondary-container-text" (List.map (Game.gamePreview << Game.fromGame (me |> User.info |> .uid |> Just)) <| Maybe.withDefault [] <|  pageUser.commonClosedGames)
             , pendingApproval me pageUser
             ]
@@ -330,8 +338,8 @@ pendingApproval me other =
                 text ""
 
 
-friendsList : Translator msg -> User.FullInfo -> Html msg
-friendsList ( { toSelf, onGameStart } ) pageUser =
+friendsList : Translator msg -> User.FullInfo -> FriendsTab ->Html msg
+friendsList ( { toSelf, onGameStart } ) pageUser friendsTab =
     let
         friendStatus = pageUser.friendStatus
 
@@ -374,12 +382,55 @@ friendsList ( { toSelf, onGameStart } ) pageUser =
                         }
 
     in
-    case pageUser.friends of
-        Nothing -> text ""
-        Just users ->
-            if List.length users > 0 && (friendStatus == Me || friendStatus == Friend) then
+    case (pageUser.friends |> Maybe.withDefault [], pageUser.suggestedFriends |> Maybe.withDefault []) of
+        ([], []) -> text ""
+        (users, []) ->
+            if friendStatus == Me || friendStatus == Friend then
                 section "Friends" "tertiary-container on-tertiary-container-text" ((List.map (friendView actionButton_) users))
-
+            else
+                text ""
+        ([], suggestions) ->
+            if friendStatus == Me then
+                section "Suggestions" "tertiary-container on-tertiary-container-text" ((List.map (friendView actionButton_) suggestions))
+            else
+                text ""
+        (users, suggestions) ->
+            if friendStatus == Friend then
+                section "Friends" "tertiary-container on-tertiary-container-text" ((List.map (friendView actionButton_) users))
+            else if friendStatus == Me then
+                let
+                    list =
+                        case friendsTab of
+                            Friends -> (List.map (friendView actionButton_) users)
+                            Suggestions -> (List.map (friendView actionButton_) suggestions)
+                    activeClass = class "font-bold rounded-t-lg tertiary-container on-tertiary-container-text"
+                in
+                    div
+                         [ class "relative flex flex-col min-w-0 break-words w-full mb-6 shadow-xl rounded-lg surface-1 on-surface-text"]
+                         [ div
+                            [ class "flex tertiary-container-5 rounded-t-lg"
+                            ]
+                            [ span
+                                [ class "py-2 px-4 invisible-click cursor-pointer select-none"
+                                , case friendsTab of
+                                    Friends -> activeClass
+                                    _ -> class ""
+                                , onClick (toSelf <| ChangeFriendsTab Friends)
+                                ]
+                                [ text "Friends"]
+                            , span
+                                [ class "py-2 px-4 flex items-center invisible-click cursor-pointer select-none"
+                                , case friendsTab of
+                                    Suggestions -> activeClass
+                                    _ -> class ""
+                                , onClick (toSelf <| ChangeFriendsTab Suggestions)
+                                ]
+                                [ span [ class "material-symbols-outlined md-18 mr-2" ][ text "person_add" ]
+                                , text "Suggestions"
+                                ]
+                            ]
+                         , div [ class "divide-y divide-light"] list
+                         ]
             else
                 text ""
 

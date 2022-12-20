@@ -20,6 +20,7 @@ type alias FullInfo =
     , gamesCount : Int
     , friendsCount : Int
     , friends : Maybe (List SimpleInfo)
+    , suggestedFriends : Maybe (List SimpleInfo)
     , incomingFriendRequests : Maybe (List SimpleInfo)
     , outgoingFriendRequests : Maybe (List SimpleInfo)
     , commonOpenGames : Maybe (List OtoGame)
@@ -39,6 +40,7 @@ decoderFullInfo =
          |> Decode.map2 (|>) (Decode.field "games_count" Decode.int)
          |> Decode.map2 (|>) (Decode.field "friends_count" Decode.int)
          |> Decode.map2 (|>) (Decode.maybe (Decode.field "friends" (Decode.list decoderInfo)))
+         |> Decode.map2 (|>) (Decode.maybe (Decode.field "suggested_friends" (Decode.list decoderInfo)))
          |> Decode.map2 (|>) (Decode.maybe (Decode.field "incoming_friends" (Decode.list decoderInfo)))
          |> Decode.map2 (|>) (Decode.maybe (Decode.field "outgoing_friends" (Decode.list decoderInfo)))
          |> Decode.map2 (|>) (Decode.maybe (Decode.field "common_open_games" (Decode.list OtoGame.decoder)))
