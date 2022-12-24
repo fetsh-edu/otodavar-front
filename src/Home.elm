@@ -5,10 +5,10 @@ import Browser exposing (Document)
 import Game.OtoGame as Game exposing (OtoGame)
 import Game.Games as Games exposing (Games)
 import Game.Game as SGame exposing (Game(..))
+import Game.Page as Page exposing (Page)
 import Html exposing (Html, a, div, span, text)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
-import Json.Decode as Decode
 import Api.OtoApi as OtoApi
 import RemoteData exposing (RemoteData(..), WebData)
 import Route
@@ -23,7 +23,8 @@ import View.Helper exposing (nbsp)
 type alias Model =
     { session : SharedModel
     , home : WebData Games
-    , stalled : WebData (List OtoGame)
+    , stalled : WebData (Page OtoGame)
+    , archived : WebData (Page OtoGame)
     }
 
 toSession : Model -> SharedModel
@@ -31,7 +32,7 @@ toSession model =
     model.session
 
 initModel : SharedModel -> Model
-initModel session = { session = session, home = NotAsked, stalled = NotAsked }
+initModel session = { session = session, home = NotAsked, stalled = NotAsked, archived = NotAsked }
 
 init : SharedModel -> ( Model, Cmd Msg )
 init session =
@@ -46,23 +47,37 @@ updateSession session model =
 
 type Msg
     = HomeReceived (WebData Games)
-    | LoadStalled
-    | StalledReceived (WebData (List OtoGame))
+    | LoadStalled Int
+    | LoadArchived Int
+    | StalledReceived (WebData (Page OtoGame))
+    | ArchivedReceived (WebData (Page OtoGame))
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         HomeReceived webData ->
             ( { model | home = webData }, Cmd.none )
-        LoadStalled ->
-            ( { model | stalled = Loading }, getStalled (SharedModel.bearer model.session) (model.session.apiUrl) )
+        LoadStalled page ->
+            ( { model | stalled = Loading }, getStalled (SharedModel.bearer model.session) (model.session.apiUrl) page )
+        LoadArchived page ->
+            ( { model | archived = Loading }, getArchived (SharedModel.bearer model.session) (model.session.apiUrl) page )
         StalledReceived some ->
             let
                 newModel = { model | stalled = some }
             in
             case some of
                 Success games_ ->
-                    ( { newModel | home = RemoteData.map (\games -> { games | stalledPreviewGames = games_ }) model.home }
+                    ( { newModel | home = RemoteData.map (\games -> { games | stalledGames = games_ }) model.home }
+                    , Cmd.none
+                    )
+                _ -> ( newModel, Cmd.none )
+        ArchivedReceived some ->
+            let
+                newModel = { model | archived = some }
+            in
+            case some of
+                Success games_ ->
+                    ( { newModel | home = RemoteData.map (\games -> { games | archivedGames = games_ }) model.home }
                     , Cmd.none
                     )
                 _ -> ( newModel, Cmd.none )
@@ -73,7 +88,7 @@ type alias Translator msg =
     , onRandomLaunch : Maybe Uid -> msg
     }
 view : Translator msg -> Model -> Document msg
-view translator { session, home, stalled } =
+view translator { session, home, stalled, archived } =
     let
         body =
             case SharedModel.user session of
@@ -83,7 +98,7 @@ view translator { session, home, stalled } =
                         NotAsked -> [ View.Helper.loadingContainer "Not asked" ]
                         Loading -> loadingContent
                         Failure e -> [ View.Helper.loadingContainer "Failure" ]
-                        Success a -> successContent translator user session a stalled
+                        Success a -> successContent translator user session a stalled archived
 
     in
         { title = ""
@@ -116,17 +131,18 @@ loadingContent =
         ]
     ]
 
-successContent : Translator msg -> User -> SharedModel -> Games -> WebData (List OtoGame)-> List (Html msg)
-successContent { onRandomLaunch, toSelf } me session games stalled =
+successContent : Translator msg -> User -> SharedModel -> Games -> WebData (Page OtoGame) -> WebData (Page OtoGame) -> List (Html msg)
+successContent { onRandomLaunch, toSelf } me session games stalled archived =
     let
-        mappedGames games_ = List.map (SGame.fromGame (me |> User.info |> .uid |> Just)) <| games_
+        otoGameToGame = SGame.fromGame (me |> User.info |> .uid |> Just)
+        mappedGames games_ = List.map otoGameToGame <| games_
     in
     [ View.Helper.container
         [ winSection  <| mappedGames games.notSeenGames
         , myTurnSection <| mappedGames games.myTurnGames
         , playButtonsSection me games.randomGame onRandomLaunch
-        , partnersTurnSection toSelf stalled games.stalledCount games.totalStalledCount <| mappedGames games.stalledPreviewGames
-        , oldGamesSection (games.archivedGames |> List.map (SGame.fromGame (me |> User.info |> .uid |> Just)))
+        , pagedGamesSection "Waiting for partner" "secondary-container on-secondary-container-text" toSelf LoadStalled stalled games.stalledGames otoGameToGame
+        , pagedGamesSection "Previous Games" "tertiary-container on-tertiary-container-text" toSelf LoadArchived archived games.archivedGames otoGameToGame
         ]
     ]
 
@@ -134,42 +150,60 @@ myTurnSection : List SGame.Game -> Html msg
 myTurnSection games =
     gamesSection "Your turn!" "tertiary-container on-tertiary-container-text" games
 
-oldGamesSection : List SGame.Game -> Html msg
-oldGamesSection games =
-    gamesSection "Previous Games" "tertiary-container on-tertiary-container-text" games
-
-partnersTurnSection : (Msg -> msg) -> WebData (List OtoGame)-> Int -> Int -> List SGame.Game -> Html msg
-partnersTurnSection toMsg stalled stalledCount totalStalledCount games =
+pagedGamesSection : String -> String -> (a -> msg) -> (Int -> a) -> RemoteData e b -> Page c -> (c -> Game) -> Html msg
+pagedGamesSection title titleAttr toMsg loadPage newPage currentPage itemsToGame =
     let
         footer =
-            if stalledCount < totalStalledCount
-            then
-                case stalled of
-                    Success _ -> Nothing
-                    _ ->
-                        ( Just
-                            (
-                                [ class "uppercase text-center invisible-click surface-1 cursor-pointer select-none"
-                                , case stalled of
-                                    Loading -> class ""
-                                    _ -> onClick (toMsg LoadStalled)
-                                ]
-                                , [ case stalled of
-                                    Loading -> text "Loading"
-                                    NotAsked -> text ("Show all (+" ++ String.fromInt(totalStalledCount - stalledCount) ++ ")" )
-                                    Failure _ -> text "Error"
-                                    Success _ -> text ""
-                                  ]
-                            )
-                        )
+            ( [ class "uppercase text-center invisible-click surface-1 select-none flex"]
+            , case newPage of
+                Failure _ -> [ text "Error" ]
+                _ ->
+                    let
+                        prevPage =
+                            if currentPage.page > 1
+                            then
+                                div
+                                    [ class "w-5/12 rounded-lg py-2 surface-1 cursor-pointer flex items-center justify-center"
+                                    , case newPage of
+                                      Loading -> class ""
+                                      _ -> onClick (toMsg (loadPage (currentPage.page + -1)))
+                                    ]
+                                    [ span [ class "material-symbols-outlined mr-2" ][ text "arrow_back" ], text "Newer" ]
+                            else div [ class "w-5/12"] [ text "" ]
+                        pageCounter =
+                            case newPage of
+                                Loading -> View.Helper.spinner []
+                                _ -> text (String.fromInt(currentPage.page) ++ "/" ++ String.fromInt(currentPage.totalPages))
+                        nextPage =
+                            if currentPage.page == currentPage.totalPages
+                            then div [ class "w-5/12"] [ text "" ]
+                            else
+                                div
+                                    [ class "w-5/12 rounded-lg py-2 surface-1 cursor-pointer flex items-center justify-center"
+                                    , case newPage of
+                                      Loading -> class ""
+                                      _ -> onClick (toMsg (loadPage (currentPage.page + 1)))
+                                    ]
+                                    [ text "Older", span [ class "material-symbols-outlined ml-2" ][ text "arrow_forward" ] ]
+                    in
+                        [ prevPage
+                        , div [ class "w-2/12 flex items-center justify-center" ] [ pageCounter ]
+                        , nextPage
+                        ]
+            )
+
+        maybeFooter =
+            if currentPage.totalPages > 1
+            then Just footer
             else Nothing
 
     in
     gamesSectionWithFooter
-        "Waiting for partner"
-        "secondary-container on-secondary-container-text"
-        games
-        footer
+        title
+        titleAttr
+        (List.map itemsToGame currentPage.items)
+        maybeFooter
+
 
 winSection : List SGame.Game -> Html msg
 winSection games =
@@ -244,10 +278,18 @@ get bearer apiUrl =
         HomeReceived
         Games.decoder
 
-getStalled : Maybe Bearer -> Url -> Cmd Msg
-getStalled bearer apiUrl =
+getStalled : Maybe Bearer -> Url -> Int -> Cmd Msg
+getStalled bearer apiUrl page =
     OtoRequest.get
         bearer
-        ((OtoApi.routes apiUrl).game.stalled)
+        ((OtoApi.routes apiUrl).game.stalled page)
         StalledReceived
-        (Decode.list Game.decoder)
+        (Page.decoder Game.decoder)
+
+getArchived : Maybe Bearer -> Url -> Int -> Cmd Msg
+getArchived bearer apiUrl page =
+    OtoRequest.get
+        bearer
+        ((OtoApi.routes apiUrl).game.archived page)
+        ArchivedReceived
+        (Page.decoder Game.decoder)

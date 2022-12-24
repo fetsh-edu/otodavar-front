@@ -9,11 +9,15 @@ import RemoteData exposing (WebData)
 loadingContainer : String -> Html msg
 loadingContainer text_ =
     smallContainer (class "animate-pulse")
-        [ span
-            [ class "animate-spin flex justify-center items-center h-14 w-14 material-symbols-outlined mr-0" ]
-            [ text "refresh"]
+        [ spinner [ class "h-14 w-14 mr-0" ]
         , span [ class "pl-0 overflow-ellipsis overflow-hidden"] [text text_]
         ]
+
+spinner : List (Html.Attribute msg) -> Html msg
+spinner attrs =
+    span
+        ([ class "animate-spin flex justify-center items-center material-symbols-outlined" ] ++ attrs)
+        [ text "refresh"]
 
 
 simpleSmallContainer : List (Html msg) -> Html msg

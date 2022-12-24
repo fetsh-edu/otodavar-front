@@ -31,7 +31,8 @@ routes url__ =
         { start = url_ ("/api/v1/games/join") Nothing
         , show = (\uid -> url_ ("/api/v1/games/" ++ (Uid.toString uid)) Nothing )
         , archive = (\uid -> url_ ("/api/v1/games/" ++ (Uid.toString uid) ++ "/archive") Nothing )
-        , stalled  = url_ ("/api/v1/games/stalled") Nothing
+        , stalled  = (\page -> url_ ("/api/v1/games/stalled") (page |> String.fromInt >> Url.Builder.string "page" >> List.singleton >> Url.Builder.toQuery >> String.dropLeft 1 >> Just))
+        , archived  = (\page -> url_ ("/api/v1/games/archived") (page |> String.fromInt >> Url.Builder.string "page" >> List.singleton >> Url.Builder.toQuery >> String.dropLeft 1 >> Just))
         }
     , word =
         { create = url_ ("/api/v1/words") Nothing
