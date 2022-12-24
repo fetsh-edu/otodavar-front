@@ -10,6 +10,7 @@ import Html exposing (Html, a, div, span, text)
 import Html.Attributes exposing (class)
 import Html.Events exposing (onClick)
 import Api.OtoApi as OtoApi
+import List exposing (repeat)
 import RemoteData exposing (RemoteData(..), WebData)
 import Route
 import SharedModel exposing (SharedModel)
@@ -197,11 +198,16 @@ pagedGamesSection title titleAttr toMsg loadPage newPage currentPage itemsToGame
             then Just footer
             else Nothing
 
+        pad =
+            if currentPage.totalPages > 1
+            then repeat (5 - (List.length currentPage.items)) (div [ class "h-16"] [ text nbsp ])
+            else []
+
     in
     gamesSectionWithFooter
         title
         titleAttr
-        (List.map itemsToGame currentPage.items)
+        ((List.map (SGame.gamePreview << itemsToGame) currentPage.items) ++ pad)
         maybeFooter
 
 
@@ -262,13 +268,14 @@ playARandomButton action =
 
 
 gamesSection : String -> String -> List SGame.Game -> Html msg
-gamesSection title classes games = gamesSectionWithFooter title classes games Nothing
+gamesSection title classes games = gamesSectionWithFooter title classes (List.map (SGame.gamePreview) games) Nothing
 
-gamesSectionWithFooter : String -> String -> List SGame.Game -> Maybe (List (Html.Attribute msg), List (Html msg)) -> Html msg
+
+gamesSectionWithFooter : String -> String -> List (Html msg) -> Maybe (List (Html.Attribute msg), List (Html msg)) -> Html msg
 gamesSectionWithFooter title classes games footer =
     if List.isEmpty games
         then text ""
-        else View.Helper.sectionWithFooter title (classes ++ " uppercase text-center") (List.map (SGame.gamePreview) games) footer
+        else View.Helper.sectionWithFooter title (classes ++ " uppercase text-center") games footer
 
 get : Maybe Bearer -> Url -> Cmd Msg
 get bearer apiUrl =
