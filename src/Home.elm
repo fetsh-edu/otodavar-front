@@ -200,8 +200,10 @@ pagedGamesSection title titleAttr toMsg loadPage newPage currentPage itemsToGame
 
         pad =
             if currentPage.totalPages > 1
-            then repeat (5 - (List.length currentPage.items)) (div [ class "h-16"] [ text nbsp ])
-            else []
+            then
+                repeat (5 - (List.length currentPage.items)) (div [ class "flex"] [div [ class "h-16"] [ text nbsp ]])
+            else
+                []
 
     in
     gamesSectionWithFooter
